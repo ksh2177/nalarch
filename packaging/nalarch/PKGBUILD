@@ -24,7 +24,7 @@ makedepends=('cargo')
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 # Regenerate with `updpkgsums` on every version bump.
-sha256sums=('90580b40ae0e9705d19b92a995c91a7affe7f52ede2e51aa6991e323c34c190e')
+sha256sums=('6721765edcb43a2e097366577fba56574aebe809f8dd300d75c483dae680b902')
 
 prepare() {
   cd "$pkgname-$pkgver"
