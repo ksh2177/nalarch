@@ -534,6 +534,38 @@ fn dump(args: &[String]) -> Result<()> {
                 }
             }
         }
+        // 24: paru blocked on a provider choice — the case where nalarch used
+        // to announce that nothing was expected.
+        24 => {
+            let script = concat!(
+                "[sudo] password for user: \\n",
+                ":: Resolving dependencies...\\n",
+                ":: There are 2 providers available for plakar:\\n",
+                ":: Repository AUR:\\n",
+                "    1) plakar  2) plakar-git\\n",
+                "Enter a number (default=1): ",
+            );
+            app.intent = Some(app::Intent {
+                display_command: None,
+                title: i18n::t("Demo").into(),
+                cmd: vec!["sh".into(), "-c".into(), format!("printf '{script}'; sleep 5")],
+                plan: plan::empty(),
+                risks: Vec::new(),
+                removal: false,
+                notes: vec![i18n::t("demo render").into()],
+            });
+            app.mode = Mode::Plan;
+            app.start(
+                height.saturating_sub(ui::RUN_CHROME),
+                width.saturating_sub(2),
+            );
+            for _ in 0..30 {
+                std::thread::sleep(Duration::from_millis(25));
+                if let Some(s) = app.session.as_mut() {
+                    s.pump();
+                }
+            }
+        }
         // 19: paru's raw output (the "j" key) at the end of a run — used to
         // check that the *last* line produced is really visible.
         19 => {

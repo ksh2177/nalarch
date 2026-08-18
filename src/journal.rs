@@ -112,6 +112,29 @@ pub struct Resolution {
     pub make_only: bool,
 }
 
+/// One of the numbered answers paru offers.
+#[derive(Debug, Clone)]
+pub struct Candidate {
+    pub number: u32,
+    pub name: String,
+    /// Where it comes from — `AUR`, `extra`, … as paru groups them.
+    pub group: String,
+}
+
+/// A numbered question paru is waiting on.
+///
+/// Two AUR packages can provide the same thing, and paru asks which one. The
+/// answer decides what gets built under your account, so it deserves better
+/// than a screen saying nothing is expected.
+#[derive(Debug, Clone)]
+pub struct Choice {
+    /// What is being chosen for, as paru names it.
+    pub about: String,
+    pub candidates: Vec<Candidate>,
+    /// The number that applies if one just presses Enter.
+    pub default: Option<u32>,
+}
+
 /// What is known about download progress.
 #[derive(Default)]
 pub struct Downloads {
@@ -144,6 +167,10 @@ pub struct Journal {
     pub resolution: Vec<Resolution>,
     /// True while that table is being read.
     in_resolution: bool,
+    /// A numbered question paru is currently waiting on.
+    pub choice: Option<Choice>,
+    /// Group heading the numbered answers are currently under.
+    group: String,
     /// Known sizes by file name, to accumulate the bytes fetched.
     sizes: HashMap<String, i64>,
 }
@@ -164,6 +191,8 @@ impl Default for Journal {
             pacnew: Vec::new(),
             resolution: Vec::new(),
             in_resolution: false,
+            choice: None,
+            group: String::new(),
             sizes: HashMap::new(),
         }
     }
@@ -189,6 +218,8 @@ impl Journal {
     }
 
     fn push_event(&mut self, action: Action, target: String, detail: String) {
+        // Once anything is actually happening, the question has been answered.
+        self.choice = None;
         if self.events.len() >= MAX_EVENTS {
             self.events.remove(0);
         }
@@ -226,6 +257,37 @@ impl Journal {
                 }
                 // Anything that is not a row ends the table.
                 None => self.in_resolution = false,
+            }
+        }
+
+        // A numbered question: its parts arrive over several lines, and the
+        // prompt that ends it carries no clue as to what is being chosen.
+        if let Some(about) = providers_question(l) {
+            self.choice = Some(Choice {
+                about,
+                candidates: Vec::new(),
+                default: None,
+            });
+            self.group = String::new();
+            return;
+        }
+        if self.choice.is_some() {
+            if let Some(group) = group_heading(l) {
+                self.group = group;
+                return;
+            }
+            let found = read_candidates(l, &self.group);
+            if !found.is_empty() {
+                if let Some(c) = self.choice.as_mut() {
+                    c.candidates.extend(found);
+                }
+                return;
+            }
+            if let Some(n) = read_default(l) {
+                if let Some(c) = self.choice.as_mut() {
+                    c.default = Some(n);
+                }
+                return;
             }
         }
 
@@ -430,6 +492,59 @@ pub fn translate_warning(text: &str) -> String {
         return tf("{0}: already up to date, skipped", &[package]);
     }
     text.to_string()
+}
+
+/// `:: There are 2 providers available for plakar:`
+fn providers_question(l: &str) -> Option<String> {
+    let rest = l.strip_prefix(":: ")?;
+    let rest = rest.strip_prefix("There are ")?;
+    let (_count, rest) = rest.split_once(' ')?;
+    let target = rest.strip_prefix("providers available for ")?;
+    Some(target.trim_end_matches(':').to_string())
+}
+
+/// `:: Repository AUR:` — the source the next answers belong to.
+fn group_heading(l: &str) -> Option<String> {
+    let rest = l.strip_prefix(":: ")?;
+    let rest = rest.strip_prefix("Repository ")?;
+    Some(rest.trim_end_matches(':').trim().to_string())
+}
+
+/// `    1) plakar  2) plakar-git` — several answers may share a line.
+fn read_candidates(l: &str, group: &str) -> Vec<Candidate> {
+    let mut out: Vec<Candidate> = Vec::new();
+    for word in l.split_whitespace() {
+        match word.strip_suffix(')').and_then(|n| n.parse::<u32>().ok()) {
+            Some(number) => out.push(Candidate {
+                number,
+                name: String::new(),
+                group: group.to_string(),
+            }),
+            // Package names carry no spaces, but joining is cheap insurance.
+            None => {
+                if let Some(last) = out.last_mut() {
+                    if !last.name.is_empty() {
+                        last.name.push(' ');
+                    }
+                    last.name.push_str(word);
+                }
+            }
+        }
+    }
+    out.retain(|c| !c.name.is_empty());
+    out
+}
+
+/// `Enter a number (default=1):`
+///
+/// Public because the prompt itself rarely reaches this parser: a prompt is
+/// written without a newline, so the line splitter holds it in its buffer and
+/// never emits it. The run screen reads the same shape off the emulated cursor
+/// line instead, where the prompt does sit.
+pub fn read_default(l: &str) -> Option<u32> {
+    let (_, rest) = l.split_once("(default=")?;
+    let (n, _) = rest.split_once(')')?;
+    n.trim().parse().ok()
 }
 
 /// `Repo (1)`, `Aur Make (2)`, … the heading of one section of paru's table.
@@ -664,6 +779,43 @@ mod tests {
         ]);
         assert_eq!(j.pacnew, vec!["/etc/pacman.conf.pacnew".to_string()]);
         assert_eq!(j.warnings.len(), 1);
+    }
+
+    /// Two AUR packages can provide the same thing, and paru asks which one.
+    /// The prompt that ends the question carries no clue as to what is being
+    /// chosen, so the whole exchange has to be read to say anything useful.
+    #[test]
+    fn a_provider_question_is_read_whole() {
+        let j = replay(&[
+            ":: Resolving dependencies...",
+            ":: There are 2 providers available for plakar:",
+            ":: Repository AUR:",
+            "    1) plakar  2) plakar-git",
+            "Enter a number (default=1):",
+        ]);
+        let c = j.choice.expect("a question is pending");
+        assert_eq!(c.about, "plakar");
+        assert_eq!(c.default, Some(1));
+        assert_eq!(c.candidates.len(), 2);
+        assert_eq!(c.candidates[0].number, 1);
+        assert_eq!(c.candidates[0].name, "plakar");
+        assert_eq!(c.candidates[0].group, "AUR");
+        assert_eq!(c.candidates[1].name, "plakar-git");
+    }
+
+    /// Answering it starts the work, and the question stops being one.
+    #[test]
+    fn the_question_goes_once_something_happens() {
+        let j = replay(&[
+            ":: There are 2 providers available for plakar:",
+            ":: Repository AUR:",
+            "    1) plakar  2) plakar-git",
+            "Enter a number (default=1):",
+            ":: Processing package changes...",
+            "(1/1) installing plakar [###] 100%",
+        ]);
+        assert!(j.choice.is_none());
+        assert_eq!(j.handled().collect::<Vec<_>>(), vec!["plakar"]);
     }
 
     /// paru resolves the AUR side itself, and says so only in the table it

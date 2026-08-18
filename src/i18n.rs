@@ -250,6 +250,8 @@ const FR: &[(&str, &str)] = &[
     ("pacman warnings", "Avertissements de pacman"),
     ("Operations · {0}", "Opérations · {0}"),
     ("paru resolved · {0} package(s)", "paru a résolu · {0} paquet(s)"),
+    ("paru is asking · which {0}?", "paru demande · quel {0} ?"),
+    ("← Enter takes this one", "← Entrée prend celui-ci"),
     ("to build only", "pour la compilation seulement"),
     ("Operations · {0}-{1} of {2} · End to follow again",
      "Opérations · {0}-{1} sur {2} · Fin pour suivre à nouveau"),

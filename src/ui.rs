@@ -1787,6 +1787,48 @@ fn journal_block(f: &mut Frame, app: &App, session: &crate::exec::Session, zone:
         })
         .collect();
 
+    // A pending question comes first: paru is blocked on it, and the answer
+    // decides what gets built.
+    if rows.is_empty() {
+        if let Some(c) = &j.choice {
+            // The default usually comes from the prompt on screen rather than
+            // from the journal: a prompt carries no newline, so it never becomes
+            // a line to parse.
+            let default = c.default.or_else(|| {
+                session
+                    .prompt()
+                    .and_then(|p| crate::journal::read_default(&p.text))
+            });
+            for cand in &c.candidates {
+                let picked = default == Some(cand.number);
+                rows.push(Line::from(vec![
+                    Span::styled(
+                        format!(" {} ", cand.number),
+                        Style::default()
+                            .fg(theme::ACCENT)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{:<32}", truncate(&cand.name, 32)),
+                        Style::default().fg(theme::FG).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("{}{:<10}", crate::icons::repo(&cand.group.to_lowercase()), cand.group),
+                        Style::default().fg(theme::repo_color(&cand.group.to_lowercase())),
+                    ),
+                    Span::styled(
+                        if picked {
+                            format!("  {}", t("← Enter takes this one"))
+                        } else {
+                            String::new()
+                        },
+                        Style::default().fg(theme::GREEN),
+                    ),
+                ]));
+            }
+        }
+    }
+
     // Nothing has happened yet, but paru may already have worked out what it is
     // about to do. Its table is the only place the AUR side is ever spelled out,
     // and leaving "waiting…" on screen while a confirmation prompt is up asks
@@ -1892,8 +1934,17 @@ fn journal_block(f: &mut Frame, app: &App, session: &crate::exec::Session, zone:
     // indistinguishable from an operation that has stopped producing events.
     // Before anything happens the block carries paru's resolution, not a list
     // of operations; naming it "Operations · 0" would be false twice over.
+    let asking = j.events.is_empty() && j.choice.is_some();
     let resolving = j.events.is_empty() && !j.resolution.is_empty();
-    let title = if resolving {
+    let title = if asking {
+        format!(
+            " {} ",
+            tf(
+                "paru is asking · which {0}?",
+                &[&j.choice.as_ref().map(|c| c.about.clone()).unwrap_or_default()]
+            )
+        )
+    } else if resolving {
         format!(
             " {} ",
             tf(

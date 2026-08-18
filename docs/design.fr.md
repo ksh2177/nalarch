@@ -67,6 +67,25 @@ racontée comme le reste, les dépendances de compilation signalées comme telle
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
+paru pose aussi des questions numérotées, et celles-là étaient pires : `Enter a number
+(default=1):` n'a ni crochets ni point d'interrogation, elle n'était donc pas reconnue comme
+une invite du tout. nalarch annonçait que rien n'était attendu pendant que paru restait bloqué
+sur un choix de fournisseur. Un deux-points final compte désormais comme une question — ce
+qui n'est sûr que parce qu'on inspecte la ligne où se trouve le curseur, et que tout ce
+qu'imprime pacman se termine par un saut de ligne. Le curseur reste sur une invite justement
+parce qu'une invite n'en a pas.
+
+```
+┌ paru demande · quel plakar ? ────────────────────────────────────────────┐
+│ 1 plakar             AUR    ← Entrée prend celui-ci                      │
+│ 2 plakar-git         AUR                                                 │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+Ce même saut de ligne manquant explique que le choix par défaut soit lu sur l'écran émulé
+plutôt que dans le flux : le découpeur garde une ligne inachevée dans son tampon et ne l'émet
+jamais.
+
 Les colonnes de cette table sont alignées et non délimitées : ses lignes se lisent donc par la
 forme — le premier champ porte `dépôt/nom`, un `Yes`/`No` final est l'indicateur de
 compilation seule, et ce qui reste est une version pour une installation, deux pour une mise
@@ -182,5 +201,6 @@ vérifier la mise en page, produire une capture, ou déboguer depuis un script.
 | `21` | le plan d'installation de ce résultat, dépendances comprises |
 | `22` | une transcription longue (4ᵉ nombre = premier événement, 5ᵉ = sortie brute) |
 | `23` | la table de résolution de paru avec sa demande de confirmation |
+| `24` | paru bloqué sur un choix de fournisseur |
 | `18` | plan de retour arrière construit à partir de celle-ci |
 | `19` | sortie brute de paru en fin d'exécution (4ᵉ nombre = lignes remontées) |

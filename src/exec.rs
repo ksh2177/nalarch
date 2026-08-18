@@ -407,14 +407,25 @@ pub struct Prompt {
     pub masked: bool,
 }
 
-/// Recognises a question put to the user, in any language: pacman and paru
-/// always print the possible answers between brackets, with the capital marking
-/// the default.
+/// Recognises a question put to the user.
+///
+/// Three shapes, and the third is the one that matters. pacman and paru print
+/// the possible answers between brackets, with the capital marking the default —
+/// that covers `[Y/n]` in any language. Some questions merely end in a question
+/// mark. But `Enter a number (default=1):` has neither, and missing it left
+/// nalarch announcing that nothing was expected while paru sat blocked on a
+/// provider choice.
+///
+/// A trailing colon is enough here only because of what calls this: the line the
+/// cursor is sitting on. Everything pacman prints ends with a newline, so the
+/// cursor only stays put on something written without one — which is what a
+/// prompt is.
 fn is_question(bottom: &str) -> bool {
     ["[y/n]", "[o/n]", "[n/y]", "[n/o]"]
         .iter()
         .any(|m| bottom.contains(m))
         || bottom.ends_with('?')
+        || bottom.ends_with(':')
 }
 
 #[cfg(test)]
@@ -459,5 +470,17 @@ mod tests {
         assert!(is_question("procéder à l'installation ? [o/n]"));
         assert!(is_question(":: proceed with installation? [y/n]"));
         assert!(!is_question("(1/3) upgrading fastfetch"));
+    }
+
+    /// The shape that was missed: no brackets, no question mark. paru sat
+    /// waiting on it while the footer said nothing was expected.
+    #[test]
+    fn a_prompt_ending_in_a_colon_is_a_question_too() {
+        assert!(is_question("enter a number (default=1):"));
+        assert!(is_question("[sudo] password for ksh:"));
+        // A progress bar also leaves the cursor on its line, and must not be
+        // mistaken for one.
+        assert!(!is_question("(1/3) upgrading fastfetch [###] 100%"));
+        assert!(!is_question(" fastfetch-2.67.1-1-x86_64.pkg.tar.zst  638.5 kib"));
     }
 }

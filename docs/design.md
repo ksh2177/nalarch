@@ -65,6 +65,23 @@ such:
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
+paru also asks numbered questions, and those were worse: `Enter a number (default=1):` has
+neither brackets nor a question mark, so it was not recognised as a prompt at all. nalarch
+announced that nothing was expected while paru sat blocked on a provider choice. A trailing
+colon now counts as a question — safe only because what is inspected is the line the cursor
+sits on, and everything pacman prints ends with a newline. The cursor stays put on a prompt
+precisely because a prompt has none.
+
+```
+┌ paru is asking · which plakar? ──────────────────────────────────────────┐
+│ 1 plakar             AUR    ← Enter takes this one                       │
+│ 2 plakar-git         AUR                                                 │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+That same missing newline is why the default is read off the emulated screen rather than from
+the stream: the line splitter holds an unterminated line in its buffer and never emits it.
+
 The table's columns are aligned rather than delimited, so its rows are read by shape: the
 first field carries `repo/name`, a trailing `Yes`/`No` is the make-only flag, and what remains
 is one version for an install or two for an upgrade.
@@ -177,5 +194,6 @@ Useful to check the layout, produce a capture, or debug from a script.
 | `21` | the install plan for that result, dependencies included |
 | `22` | a long transcript (4th number = first event shown, 5th = raw output) |
 | `23` | paru's resolution table with its confirmation prompt |
+| `24` | paru blocked on a provider choice |
 | `18` | the rollback plan built from that transaction |
 | `19` | paru's raw output at the end of a run (4th number = lines scrolled back) |
