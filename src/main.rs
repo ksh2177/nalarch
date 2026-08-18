@@ -47,12 +47,19 @@ fn main() -> Result<()> {
     // exercise the run screen when the system is already up to date and no real
     // transaction is available.
     if args.iter().any(|a| a == "--demo") {
+        let plan = demo::plan();
+        // The synthetic plan goes through the real analyser rather than an empty
+        // list. An attention panel reading "nothing in particular" on the one
+        // screen that justifies the tool misrepresents it — and the analyser has
+        // real things to say here, starting with the new dependency the plan
+        // drags in and whatever IgnorePkg is holding back on this machine.
+        let risks = risks::analyze(&plan, &app.state, &[], false);
         app.intent = Some(app::Intent {
             display_command: None,
             title: crate::i18n::t("Demo — the system is not modified").into(),
             cmd: demo::command()?,
-            plan: demo::plan(),
-            risks: Vec::new(),
+            plan,
+            risks,
             removal: false,
             notes: vec![
                 crate::i18n::t("Replayed output: no pacman command is invoked.").into(),

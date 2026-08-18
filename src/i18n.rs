@@ -268,6 +268,7 @@ const FR: &[(&str, &str)] = &[
     ("{0} · j raw output · ↑↓ PgUp PgDn scroll · Enter back to the table",
      "{0} · j sortie brute · ↑↓ PgUp PgDn défiler · Entrée revenir au tableau"),
     ("Interrupted", "Interrompu"),
+    ("interrupted", "interrompue"),
     ("Failed (code {0})", "Échec (code {0})"),
     ("output of {0}", "sortie de {0}"),
     ("output of {0} · scrolled back {1} line(s) · End to return",
@@ -415,11 +416,11 @@ const FR: &[(&str, &str)] = &[
     ("downgraded", "rétrogradé"),
     ("removed", "supprimé"),
     ("reinstalled", "réinstallé"),
-    ("installed (plural)", "installés"),
-    ("upgraded (plural)", "mis à jour"),
-    ("downgraded (plural)", "rétrogradés"),
-    ("removed (plural)", "supprimés"),
-    ("reinstalled (plural)", "réinstallés"),
+    ("plural|installed", "installés"),
+    ("plural|upgraded", "mis à jour"),
+    ("plural|downgraded", "rétrogradés"),
+    ("plural|removed", "supprimés"),
+    ("plural|reinstalled", "réinstallés"),
     ("no change", "aucune modification"),
     ("system upgrade", "mise à jour du système"),
     ("system upgrade · {0}", "mise à jour du système · {0}"),
@@ -682,6 +683,9 @@ mod tests {
     #[test]
     fn a_context_prefix_never_reaches_the_screen() {
         assert_eq!(t("tab|Installed"), "Installed");
+        // The plural keys used to read "installed (plural)" and shipped that
+        // parenthesis straight to the English interface.
+        assert_eq!(t("plural|installed"), "installed");
     }
 
     #[test]

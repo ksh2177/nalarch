@@ -457,17 +457,17 @@ fn transaction_list(f: &mut Frame, app: &mut App, zone: Rect) {
     let width = zone.width.saturating_sub(4) as usize;
     let items: Vec<ListItem> = transactions
         .iter()
-        .map(|t| {
-            let date = crate::history::short_date(&t.timestamp);
-            let relative = crate::history::relative_time(t.instant);
+        .map(|tx| {
+            let date = crate::history::short_date(&tx.timestamp);
+            let relative = crate::history::relative_time(tx.instant);
             // Row 1: when, and how long ago.
             let mut first_line = vec![
                 Span::styled(date, Style::default().fg(theme::FG)),
                 Span::styled(format!("  {relative}"), Style::default().fg(theme::DIM)),
             ];
-            if !t.completed {
+            if !tx.completed {
                 first_line.push(Span::styled(
-                    "  interrompue",
+                    format!("  {}", t("interrupted")),
                     Style::default().fg(theme::RED),
                 ));
             }
@@ -480,7 +480,7 @@ fn transaction_list(f: &mut Frame, app: &mut App, zone: Rect) {
                 (crate::history::Act::Removed, theme::RED),
                 (crate::history::Act::Reinstalled, theme::DIM),
             ] {
-                let n = t.count(act);
+                let n = tx.count(act);
                 if n > 0 {
                     second_line.push(Span::styled(
                         format!("{} {n}  ", act.symbol()),
@@ -489,7 +489,7 @@ fn transaction_list(f: &mut Frame, app: &mut App, zone: Rect) {
                 }
             }
             second_line.push(Span::styled(
-                truncate(&t.trigger(), width.saturating_sub(20)),
+                truncate(&tx.trigger(), width.saturating_sub(20)),
                 Style::default().fg(theme::DIM),
             ));
             ListItem::new(vec![Line::from(first_line), Line::from(second_line)])

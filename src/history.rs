@@ -73,11 +73,11 @@ impl Act {
             return self.label().to_string();
         }
         crate::i18n::t(match self {
-            Act::Installed => "installed (plural)",
-            Act::Upgraded => "upgraded (plural)",
-            Act::Downgraded => "downgraded (plural)",
-            Act::Removed => "removed (plural)",
-            Act::Reinstalled => "reinstalled (plural)",
+            Act::Installed => "plural|installed",
+            Act::Upgraded => "plural|upgraded",
+            Act::Downgraded => "plural|downgraded",
+            Act::Removed => "plural|removed",
+            Act::Reinstalled => "plural|reinstalled",
         })
         .to_string()
     }
