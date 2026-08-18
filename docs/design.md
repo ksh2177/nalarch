@@ -50,6 +50,25 @@ downloading and installing are two separate counts, and mixing them would give a
 means nothing.
 
 
+Before any of that, paru may have a resolution of its own to show. Installing an AUR package
+is the case where nalarch's plan is knowingly incomplete: pacman cannot resolve `plakar-git`,
+so the plan says "1 package, sizes unknown" while paru works out that `go` has to come along
+to build it. paru prints that in a table and asks to proceed — and until it was read, the
+transcript said `Operations · 0` and the confirmation asked to approve something nothing on
+screen had shown. It is now retold like the rest, with build-only dependencies marked as
+such:
+
+```
+┌ paru resolved · 2 package(s) ────────────────────────────────────────────┐
+│ ⚒ extra      go                    2:1.26.6-1  to build only             │
+│ + aur        plakar-git            1.0.3.r384.gd77c14a2-1                │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+The table's columns are aligned rather than delimited, so its rows are read by shape: the
+first field carries `repo/name`, a trailing `Yes`/`No` is the make-only flag, and what remains
+is one version for an install or two for an upgrade.
+
 The **Worth noting** block gathers what calls for an action on your side and what the output
 drowns: `.pacnew` files to merge, a required reboot, warnings, errors. Each entry says what
 to do, not only what happened — a `.pacnew` comes with the `sudo pacdiff -s` command and the
@@ -157,5 +176,6 @@ Useful to check the layout, produce a capture, or debug from a script.
 | `20` | the search tab (`--query <term>`, 4th number = which result) |
 | `21` | the install plan for that result, dependencies included |
 | `22` | a long transcript (4th number = first event shown, 5th = raw output) |
+| `23` | paru's resolution table with its confirmation prompt |
 | `18` | the rollback plan built from that transaction |
 | `19` | paru's raw output at the end of a run (4th number = lines scrolled back) |

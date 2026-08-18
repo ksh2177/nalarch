@@ -1787,6 +1787,44 @@ fn journal_block(f: &mut Frame, app: &App, session: &crate::exec::Session, zone:
         })
         .collect();
 
+    // Nothing has happened yet, but paru may already have worked out what it is
+    // about to do. Its table is the only place the AUR side is ever spelled out,
+    // and leaving "waiting…" on screen while a confirmation prompt is up asks
+    // the reader to approve something nothing has shown them.
+    if rows.is_empty() && !j.resolution.is_empty() {
+        for r in &j.resolution {
+            let colour = if r.make_only { theme::MAGENTA } else { theme::GREEN };
+            let mut spans = vec![
+                Span::styled(
+                    format!(" {} ", if r.make_only { "⚒" } else { "+" }),
+                    Style::default().fg(colour).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("{}{:<10}", crate::icons::repo(&r.repo), truncate(&r.repo, 10)),
+                    Style::default().fg(theme::repo_color(&r.repo)),
+                ),
+                Span::styled(
+                    format!("{:<32}", truncate(&r.name, 32)),
+                    Style::default().fg(theme::FG).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    match &r.from {
+                        Some(from) => format!("{from} → {}", r.to),
+                        None => r.to.clone(),
+                    },
+                    Style::default().fg(theme::DIM),
+                ),
+            ];
+            if r.make_only {
+                spans.push(Span::styled(
+                    format!("  {}", t("to build only")),
+                    Style::default().fg(theme::MAGENTA),
+                ));
+            }
+            rows.push(Line::from(spans));
+        }
+    }
+
     if rows.is_empty() {
         rows.push(Line::from(Span::styled(
             format!(" {}", t("Waiting for the first operations…")),
@@ -1852,7 +1890,18 @@ fn journal_block(f: &mut Frame, app: &App, session: &crate::exec::Session, zone:
     // frames with the same title.
     // Scrolled back, the title says where: without it, a frozen list is
     // indistinguishable from an operation that has stopped producing events.
-    let title = if started < overflow {
+    // Before anything happens the block carries paru's resolution, not a list
+    // of operations; naming it "Operations · 0" would be false twice over.
+    let resolving = j.events.is_empty() && !j.resolution.is_empty();
+    let title = if resolving {
+        format!(
+            " {} ",
+            tf(
+                "paru resolved · {0} package(s)",
+                &[&j.resolution.len().to_string()]
+            )
+        )
+    } else if started < overflow {
         format!(
             " {} ",
             tf(

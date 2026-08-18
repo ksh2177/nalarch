@@ -93,6 +93,25 @@ pub struct Event {
     pub detail: String,
 }
 
+/// One line of the table paru prints before asking to proceed.
+///
+/// It is the only place the AUR side of a transaction is ever spelled out:
+/// pacman cannot resolve an AUR package, so nalarch's own plan says "1 package,
+/// sizes unknown" while paru has just worked out that it also needs `go` to
+/// build it. Letting that table scroll past would leave the confirmation prompt
+/// answering a question nothing on screen has asked.
+#[derive(Debug, Clone)]
+pub struct Resolution {
+    pub name: String,
+    /// `extra`, `aur`, … as paru prefixes it.
+    pub repo: String,
+    pub from: Option<String>,
+    pub to: String,
+    /// A build dependency: installed to compile something, not because it was
+    /// wanted. paru can remove it again afterwards.
+    pub make_only: bool,
+}
+
 /// What is known about download progress.
 #[derive(Default)]
 pub struct Downloads {
@@ -121,6 +140,10 @@ pub struct Journal {
     pub errors: Vec<String>,
     /// Configuration files laid down next to yours, waiting to be merged.
     pub pacnew: Vec<String>,
+    /// What paru resolved, read from the table it prints before asking.
+    pub resolution: Vec<Resolution>,
+    /// True while that table is being read.
+    in_resolution: bool,
     /// Known sizes by file name, to accumulate the bytes fetched.
     sizes: HashMap<String, i64>,
 }
@@ -139,6 +162,8 @@ impl Default for Journal {
             warnings: Vec::new(),
             errors: Vec::new(),
             pacnew: Vec::new(),
+            resolution: Vec::new(),
+            in_resolution: false,
             sizes: HashMap::new(),
         }
     }
@@ -178,6 +203,30 @@ impl Journal {
         let l = line.trim();
         if l.is_empty() {
             return;
+        }
+
+        // paru's own resolution table, printed just before it asks to proceed.
+        // It is read before anything else because its rows look like nothing in
+        // particular and would otherwise fall through to the download parser.
+        if is_resolution_header(l) {
+            // A table has several consecutive sections — Repo, then Aur, then
+            // their Make variants. Only the first of them starts a new table;
+            // clearing on each would leave nothing but the last section.
+            if !self.in_resolution {
+                self.resolution.clear();
+                self.in_resolution = true;
+            }
+            return;
+        }
+        if self.in_resolution {
+            match read_resolution(l) {
+                Some(r) => {
+                    self.resolution.push(r);
+                    return;
+                }
+                // Anything that is not a row ends the table.
+                None => self.in_resolution = false,
+            }
         }
 
         if let Some(rest) = l.strip_prefix(":: ") {
@@ -383,6 +432,65 @@ pub fn translate_warning(text: &str) -> String {
     text.to_string()
 }
 
+/// `Repo (1)`, `Aur Make (2)`, … the heading of one section of paru's table.
+///
+/// The count in parentheses is what tells it apart from a package whose name
+/// happens to start the same way.
+fn is_resolution_header(l: &str) -> bool {
+    for prefix in ["Repo", "Aur"] {
+        let Some(rest) = l.strip_prefix(prefix) else {
+            continue;
+        };
+        let rest = rest.strip_prefix(" Make").unwrap_or(rest);
+        if rest.trim_start().starts_with('(') {
+            return true;
+        }
+    }
+    false
+}
+
+/// One row of that table: `extra/go  2:1.26.6-1  Yes`.
+///
+/// Columns are aligned rather than delimited, so the fields are read by shape:
+/// the first carries `repo/name`, a trailing `Yes`/`No` is the make-only flag,
+/// and what remains is one or two versions — one for an install, two for an
+/// upgrade.
+fn read_resolution(l: &str) -> Option<Resolution> {
+    let mut fields: Vec<&str> = l.split_whitespace().collect();
+    if fields.len() < 2 {
+        return None;
+    }
+    let (repo, name) = fields.remove(0).split_once('/')?;
+    if repo.is_empty() || name.is_empty() {
+        return None;
+    }
+
+    let make_only = match fields.last() {
+        Some(&"Yes") => {
+            fields.pop();
+            true
+        }
+        Some(&"No") => {
+            fields.pop();
+            false
+        }
+        _ => false,
+    };
+
+    let (from, to) = match fields.len() {
+        1 => (None, fields[0].to_string()),
+        2 => (Some(fields[0].to_string()), fields[1].to_string()),
+        _ => return None,
+    };
+    Some(Resolution {
+        name: name.to_string(),
+        repo: repo.to_string(),
+        from,
+        to,
+        make_only,
+    })
+}
+
 /// Recovers a package name from the file being downloaded.
 ///
 /// The convention is `name-version-release-architecture.pkg.tar.*`. The name
@@ -556,6 +664,61 @@ mod tests {
         ]);
         assert_eq!(j.pacnew, vec!["/etc/pacman.conf.pacnew".to_string()]);
         assert_eq!(j.warnings.len(), 1);
+    }
+
+    /// paru resolves the AUR side itself, and says so only in the table it
+    /// prints before asking to proceed. Reading it is the difference between
+    /// "1 package, sizes unknown" and knowing that `go` is about to be pulled in
+    /// to build the thing.
+    #[test]
+    fn parus_resolution_table_is_read() {
+        let j = replay(&[
+            ":: Resolving dependencies...",
+            "Repo (1)        Old Version  New Version  Make Only",
+            "extra/go                     2:1.26.6-1   Yes",
+            "Aur (1)         Old Version  New Version  Make Only",
+            "aur/plakar-git               1.0.3.r384.gd77c14a2-1  No",
+            ":: Proceed with installation? [Y/n]:",
+        ]);
+        assert_eq!(j.resolution.len(), 2);
+
+        let go = &j.resolution[0];
+        assert_eq!((go.repo.as_str(), go.name.as_str()), ("extra", "go"));
+        assert_eq!(go.from, None);
+        assert_eq!(go.to, "2:1.26.6-1");
+        // Build-only: it is here to compile something, not because it was wanted.
+        assert!(go.make_only);
+
+        let aur = &j.resolution[1];
+        assert_eq!(aur.repo, "aur");
+        assert!(!aur.make_only);
+        assert_eq!(aur.to, "1.0.3.r384.gd77c14a2-1");
+    }
+
+    /// An upgrade row carries two versions where an install carries one.
+    #[test]
+    fn a_resolution_row_with_two_versions_is_an_upgrade() {
+        let j = replay(&[
+            "Repo (1)        Old Version  New Version  Make Only",
+            "extra/foo       1.0-1        2.0-1        No",
+        ]);
+        assert_eq!(j.resolution[0].from.as_deref(), Some("1.0-1"));
+        assert_eq!(j.resolution[0].to, "2.0-1");
+    }
+
+    /// The table ends where its rows stop, not on a marker: whatever follows
+    /// must go back through the normal parsing.
+    #[test]
+    fn the_table_ends_when_the_rows_do() {
+        let j = replay(&[
+            "Repo (1)        Old Version  New Version  Make Only",
+            "extra/go                     2:1.26.6-1   Yes",
+            ":: Processing package changes...",
+            "(1/1) upgrading fastfetch [###] 100%",
+        ]);
+        assert_eq!(j.resolution.len(), 1);
+        assert_eq!(j.phase, Phase::Installing);
+        assert_eq!(j.handled().collect::<Vec<_>>(), vec!["fastfetch"]);
     }
 
     /// The locale is pinned to C to make parsing reliable; letting that terse

@@ -52,6 +52,26 @@ d'avancement unique — téléchargement et installation sont deux décomptes di
 mêler donnerait un chiffre qui ne veut rien dire.
 
 
+Avant tout cela, paru a parfois sa propre résolution à montrer. Installer un paquet AUR est
+le cas où le plan de nalarch est sciemment incomplet : pacman ne sait pas résoudre
+`plakar-git`, donc le plan annonce « 1 paquet, tailles inconnues » pendant que paru établit
+que `go` doit venir avec pour le compiler. paru l'imprime dans une table et demande de
+confirmer — et tant qu'elle n'était pas lue, la transcription affichait `Opérations · 0` et la
+confirmation demandait d'approuver ce que rien à l'écran n'avait montré. Elle est désormais
+racontée comme le reste, les dépendances de compilation signalées comme telles :
+
+```
+┌ paru a résolu · 2 paquet(s) ─────────────────────────────────────────────┐
+│ ⚒ extra      go                    2:1.26.6-1  pour la compilation seule │
+│ + aur        plakar-git            1.0.3.r384.gd77c14a2-1                │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+Les colonnes de cette table sont alignées et non délimitées : ses lignes se lisent donc par la
+forme — le premier champ porte `dépôt/nom`, un `Yes`/`No` final est l'indicateur de
+compilation seule, et ce qui reste est une version pour une installation, deux pour une mise
+à jour.
+
 Le bloc **À noter** rassemble ce qui demande une action de ta part et que la sortie noie :
 fichiers `.pacnew` à fusionner, redémarrage nécessaire, avertissements, erreurs. Chaque
 entrée dit quoi faire, pas seulement ce qui s'est passé — un `.pacnew` s'accompagne de la
@@ -161,5 +181,6 @@ vérifier la mise en page, produire une capture, ou déboguer depuis un script.
 | `20` | l'onglet de recherche (`--query <terme>`, 4ᵉ nombre = quel résultat) |
 | `21` | le plan d'installation de ce résultat, dépendances comprises |
 | `22` | une transcription longue (4ᵉ nombre = premier événement, 5ᵉ = sortie brute) |
+| `23` | la table de résolution de paru avec sa demande de confirmation |
 | `18` | plan de retour arrière construit à partir de celle-ci |
 | `19` | sortie brute de paru en fin d'exécution (4ᵉ nombre = lignes remontées) |

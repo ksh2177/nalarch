@@ -59,6 +59,20 @@ ligne ' extra is up to date' 0.15
 ligne ' multilib is up to date' 0.15
 ligne 'warning: kitty: ignoring package upgrade (0.45.0-4 => 0.48.2-1)' 0.3
 
+# The table paru prints before asking. It is the only place the AUR side of a
+# transaction is ever spelled out, so the recording has to go through it.
+ligne ':: Resolving dependencies...' 0.4
+ligne ':: Calculating conflicts...' 0.3
+ligne ''
+ligne 'Repo (3)        Old Version  New Version  Make Only' 0.1
+ligne 'extra/fastfetch 2.66.0-1     2.67.1-1     No' 0.1
+ligne 'extra/bat       0.26.1-1     0.26.1-2     No' 0.1
+ligne 'extra/libfoo                 1.4.2-1      No' 0.1
+ligne ''
+printf ':: Proceed with installation? [Y/n]: '
+read -r _reponse
+printf '\n'
+
 ligne ':: Retrieving packages...'
 dl 'fastfetch-2.67.1-1-x86_64.pkg.tar.zst' '638.5' 'KiB'
 dl 'bat-0.26.1-2-x86_64.pkg.tar.zst' '2.4' 'MiB'

@@ -500,6 +500,40 @@ fn dump(args: &[String]) -> Result<()> {
             // what the footer has to describe.
             app.raw_visible = nums.get(4).is_some_and(|n| *n != 0);
         }
+        // 23: paru's resolution table with its confirmation prompt — the exact
+        // moment where nothing had been retold and the plan could not know what
+        // the AUR side pulls in.
+        23 => {
+            let script = concat!(
+                ":: Resolving dependencies...\\n",
+                ":: Calculating conflicts...\\n",
+                "Repo (1)        Old Version  New Version  Make Only\\n",
+                "extra/go                     2:1.26.6-1   Yes\\n",
+                "Aur (1)         Old Version  New Version  Make Only\\n",
+                "aur/plakar-git               1.0.3.r384.gd77c14a2-1  No\\n",
+                ":: Proceed with installation? [Y/n]: ",
+            );
+            app.intent = Some(app::Intent {
+                display_command: None,
+                title: i18n::t("Demo").into(),
+                cmd: vec!["sh".into(), "-c".into(), format!("printf '{script}'; sleep 5")],
+                plan: plan::empty(),
+                risks: Vec::new(),
+                removal: false,
+                notes: vec![i18n::t("demo render").into()],
+            });
+            app.mode = Mode::Plan;
+            app.start(
+                height.saturating_sub(ui::RUN_CHROME),
+                width.saturating_sub(2),
+            );
+            for _ in 0..30 {
+                std::thread::sleep(Duration::from_millis(25));
+                if let Some(s) = app.session.as_mut() {
+                    s.pump();
+                }
+            }
+        }
         // 19: paru's raw output (the "j" key) at the end of a run — used to
         // check that the *last* line produced is really visible.
         19 => {

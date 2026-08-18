@@ -42,9 +42,16 @@ Sleep 1800ms
 # The demo script asks for a password the way sudo would.
 Type "········"
 Enter
+Sleep 2500ms
+
+# paru's own resolution table, retold in nalarch's vocabulary, and the
+# confirmation it asks for.
+Sleep 3s
+Type "Y"
+Enter
 
 # Downloads, verifications, the install, then the hooks.
-Sleep 15s
+Sleep 14s
 
 # ── Back to the table: what is on the machine ──────────────────────────────
 Enter
