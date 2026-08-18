@@ -1228,14 +1228,21 @@ fn summary_block(
     } else {
         // Nothing to size, but not for the same reason: the AUR gets built, a
         // rollback draws on packages that are already there.
-        l.push(Line::from(Span::styled(
-            if rollback {
-                format!("  {}", t("Already cached, nothing to download"))
-            } else {
-                format!("     {}", t("Sizes unknown: built from source"))
-            },
-            Style::default().fg(theme::MAGENTA),
-        )));
+        //
+        // Wrapped rather than trusted to fit. This column is the narrowest on
+        // the screen, and the sentence was being cut mid-word — a shorter one
+        // would only move the problem to the next translation.
+        let note = if rollback {
+            t("Nothing to download: all cached")
+        } else {
+            t("Sizes unknown before the build")
+        };
+        for chunk in wrap_indent(note, zone.width.saturating_sub(2) as usize, "  ") {
+            l.push(Line::from(Span::styled(
+                chunk,
+                Style::default().fg(theme::MAGENTA),
+            )));
+        }
     }
 
     f.render_widget(
@@ -1445,7 +1452,8 @@ fn summary_height(intent: &crate::app::Intent, frozen: usize) -> u16 {
         .filter(|g| p.count(**g) > 0 || always.contains(g))
         .count() as u16;
     let frozen = u16::from(!intent.removal && frozen > 0);
-    // borders + blank line + categories + frozen + AUR + separator + costs
+    // borders + blank line + categories + frozen + AUR + separator + costs.
+    // The costs are two lines, or one wrapped note that may itself take two.
     (2 + 1 + categories + frozen + u16::from(p.aur_count > 0) + 1 + 2 + u16::from(p.unknown > 0))
         .max(8)
 }
