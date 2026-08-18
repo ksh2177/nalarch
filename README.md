@@ -5,7 +5,7 @@ on the Debian side: see what is about to change, move around in it, decide, then
 
 *[Version française](README.fr.md).*
 
-![nalarch in use: the plan screen states what a transaction will do and what deserves a look, the run screen retells each download, verification, upgrade and hook as it happens, then the installed, orphan, history, search and cache tabs are toured — the search one querying the repositories and the AUR at once.](docs/demo.gif)
+![nalarch in use: the plan screen states what a transaction will do and what deserves a look, the run screen retells each download, verification, upgrade and hook as it happens, then an update's changelog is opened — the verdict, Arch's packaging log, the upstream release notes — before the installed, orphan, history, search and cache tabs are toured.](docs/demo.gif)
 
 ## Principle
 

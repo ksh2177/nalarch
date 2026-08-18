@@ -5,7 +5,7 @@ côté Debian : voir ce qui va changer, se déplacer dedans, décider, puis appl
 
 *[English version](README.md) — c'est la version de référence ; celle-ci peut avoir un temps de retard.*
 
-![nalarch à l'usage : l'écran de plan annonce ce que la transaction va faire et ce qui mérite un regard, l'écran d'exécution raconte chaque téléchargement, vérification, mise à jour et crochet au fil de l'opération, puis les onglets installés, orphelins, historique, recherche et cache sont parcourus — celui de recherche interrogeant les dépôts et l'AUR d'un coup.](docs/demo.gif)
+![nalarch à l'usage : l'écran de plan annonce ce que la transaction va faire et ce qui mérite un regard, l'écran d'exécution raconte chaque téléchargement, vérification, mise à jour et crochet au fil de l'opération, puis le changelog d'une mise à jour est ouvert — le verdict, le journal de packaging d'Arch, les notes de version amont — avant que les onglets installés, orphelins, historique, recherche et cache soient parcourus.](docs/demo.gif)
 
 ## Principe
 

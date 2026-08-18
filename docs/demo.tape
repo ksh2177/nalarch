@@ -33,8 +33,9 @@ Enter
 Sleep 2s
 Show
 
-# Long enough to read the points of attention, which is the whole idea.
-Sleep 4500ms
+# Long enough to read the points of attention, which is the whole idea, and no
+# longer: this is also the frame the loop comes back to.
+Sleep 3200ms
 
 Enter
 Sleep 1800ms
@@ -42,32 +43,44 @@ Sleep 1800ms
 # The demo script asks for a password the way sudo would.
 Type "········"
 Enter
-Sleep 2500ms
+Sleep 2000ms
 
 # paru's own resolution table, retold in nalarch's vocabulary, and the
 # confirmation it asks for.
-Sleep 3s
+Sleep 2800ms
 Type "Y"
 Enter
 
-# Downloads, verifications, the install, then the hooks.
-Sleep 14s
+# Downloads, verifications, the install, then the hooks. The script takes about
+# nine seconds from here — measured, not guessed, so the finished screen gets a
+# beat rather than five seconds of nothing.
+Sleep 10500ms
 
 # ── Back to the table: what is on the machine ──────────────────────────────
 Enter
-Sleep 1800ms
+Sleep 1200ms
+
+# What an update actually changes, before downloading it: the verdict first,
+# then Arch's packaging log and the upstream release notes.
+Type "c"
+Sleep 2800ms
+# The upstream release notes sit below the packaging log.
+PageDown
+Sleep 2500ms
+Escape
+Sleep 800ms
 
 # Installed: explicit packages nothing depends on.
 Tab
-Sleep 1400ms
+Sleep 1200ms
 
 # Orphans: the two yellow dots are the protection list at work.
 Tab
-Sleep 2200ms
+Sleep 1800ms
 
 # History: every transaction pacman ever ran, and what a rollback could undo.
 Tab
-Sleep 2200ms
+Sleep 1800ms
 
 # Search: repositories and AUR in one list.
 Tab
@@ -75,11 +88,11 @@ Sleep 1200ms
 Type "/"
 Type "yazi"
 Enter
-Sleep 4s
+Sleep 3500ms
 
 # Cache: what makes a rollback possible in the first place.
 Tab
-Sleep 1800ms
+Sleep 1500ms
 
 Hide
 Type "q"
