@@ -87,7 +87,7 @@ fn print_help() {
     println!();
     println!("  nalarch                {}", i18n::t("start the interface"));
     println!("  nalarch --lang en|fr   {}", i18n::t("force the interface language"));
-    println!("  nalarch --icons        {}", i18n::t("draw Nerd Font glyphs (needs one)"));
+    println!("  nalarch --no-icons     {}", i18n::t("drop the Nerd Font glyphs"));
     println!("  nalarch --demo         {}", i18n::t("replay a session without touching the system"));
     println!("  nalarch --dump N W H   {}", i18n::t("render one screen as plain text (no TTY)"));
     println!("  nalarch --help         {}", i18n::t("this message"));

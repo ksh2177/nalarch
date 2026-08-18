@@ -251,6 +251,59 @@ pub fn configured_repos() -> Vec<String> {
         .collect()
 }
 
+/// What paru does with build dependencies once the build is over.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RemoveMake {
+    /// They are removed again.
+    Yes,
+    /// They stay installed.
+    No,
+    /// paru asks.
+    Ask,
+}
+
+/// Reads `RemoveMake` from paru's configuration.
+///
+/// Worth the read rather than a guess: a build dependency can be `go`, six
+/// hundred megabytes pulled in to compile one small program. Whether it goes
+/// away afterwards is the difference between a passing inconvenience and a
+/// permanent one, and it is a per-user setting — saying either without looking
+/// would be wrong on half the machines.
+///
+/// paru reads one file, not a merge: the user's if it exists, `/etc/paru.conf`
+/// otherwise. The default is off, which is why an unset option means `No`.
+pub fn remove_make() -> RemoveMake {
+    let user = std::env::var("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|_| std::env::var("HOME").map(|h| std::path::PathBuf::from(h).join(".config")))
+        .map(|b| b.join("paru").join("paru.conf"));
+
+    let contents = match user {
+        Ok(p) if p.exists() => std::fs::read_to_string(p),
+        _ => std::fs::read_to_string("/etc/paru.conf"),
+    };
+    let Ok(contents) = contents else {
+        return RemoveMake::No;
+    };
+
+    for line in contents.lines().map(str::trim) {
+        if line.starts_with('#') {
+            continue;
+        }
+        let Some(rest) = line.strip_prefix("RemoveMake") else {
+            continue;
+        };
+        // Bare `RemoveMake` means yes; `RemoveMake = ask` is its own answer.
+        return match rest.trim_start().strip_prefix('=').map(str::trim) {
+            None => RemoveMake::Yes,
+            Some("ask") => RemoveMake::Ask,
+            Some("no") => RemoveMake::No,
+            Some(_) => RemoveMake::Yes,
+        };
+    }
+    RemoveMake::No
+}
+
 /// How many versions paccache is meant to keep, read from the system
 /// configuration rather than hard-coded.
 ///

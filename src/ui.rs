@@ -1833,21 +1833,21 @@ fn journal_block(f: &mut Frame, app: &App, session: &crate::exec::Session, zone:
     // about to do. Its table is the only place the AUR side is ever spelled out,
     // and leaving "waiting…" on screen while a confirmation prompt is up asks
     // the reader to approve something nothing has shown them.
+    //
+    // Grouped, because a flat list left `go` sitting there with no reason given —
+    // as likely a bug as a build dependency, from the reader's side. The heading
+    // says why it is there; the row alone never could.
     if rows.is_empty() && !j.resolution.is_empty() {
-        for r in &j.resolution {
-            let colour = if r.make_only { theme::MAGENTA } else { theme::GREEN };
-            let mut spans = vec![
-                Span::styled(
-                    format!(" {} ", if r.make_only { "⚒" } else { "+" }),
-                    Style::default().fg(colour).add_modifier(Modifier::BOLD),
-                ),
+        let row = |r: &crate::journal::Resolution, colour| {
+            Line::from(vec![
+                Span::styled("   ", Style::default()),
                 Span::styled(
                     format!("{}{:<10}", crate::icons::repo(&r.repo), truncate(&r.repo, 10)),
                     Style::default().fg(theme::repo_color(&r.repo)),
                 ),
                 Span::styled(
-                    format!("{:<32}", truncate(&r.name, 32)),
-                    Style::default().fg(theme::FG).add_modifier(Modifier::BOLD),
+                    format!("{:<30}", truncate(&r.name, 30)),
+                    Style::default().fg(colour).add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     match &r.from {
@@ -1856,14 +1856,44 @@ fn journal_block(f: &mut Frame, app: &App, session: &crate::exec::Session, zone:
                     },
                     Style::default().fg(theme::DIM),
                 ),
-            ];
-            if r.make_only {
-                spans.push(Span::styled(
-                    format!("  {}", t("to build only")),
-                    Style::default().fg(theme::MAGENTA),
-                ));
+            ])
+        };
+
+        let wanted: Vec<&crate::journal::Resolution> =
+            j.resolution.iter().filter(|r| !r.make_only).collect();
+        let for_build: Vec<&crate::journal::Resolution> =
+            j.resolution.iter().filter(|r| r.make_only).collect();
+
+        if !wanted.is_empty() {
+            rows.push(section(t("Will be installed")));
+            for r in &wanted {
+                rows.push(row(r, theme::FG));
             }
-            rows.push(Line::from(spans));
+        }
+        if !for_build.is_empty() {
+            if !wanted.is_empty() {
+                rows.push(Line::raw(""));
+            }
+            rows.push(section(t("Needed only to build the above")));
+            for r in &for_build {
+                rows.push(row(r, theme::MAGENTA));
+            }
+            // What happens to them afterwards is a per-user setting, and the
+            // difference matters: a build dependency can be six hundred
+            // megabytes of compiler.
+            let fate = match crate::data::remove_make() {
+                crate::data::RemoveMake::Yes => t("paru removes them again once the build is done."),
+                crate::data::RemoveMake::Ask => t("paru will ask whether to remove them once the build is done."),
+                crate::data::RemoveMake::No => {
+                    t("They stay installed afterwards — set RemoveMake in paru.conf to change that.")
+                }
+            };
+            for chunk in wrap_indent(fate, zone.width.saturating_sub(2) as usize, "   ") {
+                rows.push(Line::from(Span::styled(
+                    chunk,
+                    Style::default().fg(theme::DIM),
+                )));
+            }
         }
     }
 

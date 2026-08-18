@@ -82,6 +82,13 @@ precisely because a prompt has none.
 That same missing newline is why the default is read off the emulated screen rather than from
 the stream: the line splitter holds an unterminated line in its buffer and never emits it.
 
+The rows are grouped rather than listed. A flat list left `go` sitting there with no reason
+given — as likely a bug as a build dependency, from the reader's side. What becomes of those
+build dependencies afterwards is read from paru's own configuration rather than guessed:
+`RemoveMake` is a per-user setting, and a build dependency can be six hundred megabytes of
+compiler, so the difference between "removed again" and "stays installed" is worth stating
+correctly.
+
 The table's columns are aligned rather than delimited, so its rows are read by shape: the
 first field carries `repo/name`, a trailing `Yes`/`No` is the make-only flag, and what remains
 is one version for an install or two for an upgrade.

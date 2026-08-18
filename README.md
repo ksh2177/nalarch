@@ -137,14 +137,18 @@ While following, new operations push the view along; once scrolled back it stays
 
 ## Icons
 
-Off by default. `--icons` turns them on, or `icons = true` in `~/.config/nalarch/config`;
-`NALARCH_ICONS=1` works too, and `--no-icons` wins over everything.
+On by default, from the Material Design set carried by Nerd Fonts.
 
-They are opt-in for a reason that matters more here than in most tools: the moment nalarch is
-most needed is a bare TTY after a botched upgrade, where no Nerd Font is loaded and every
-glyph would come out as an empty box. They also assume a **single-width (Mono)** Nerd Font
-variant — the double-width ones render across two cells while the layout counts one, which
-shifts every column that follows.
+The one place they cannot work is a bare TTY — no patched font is loaded there and every
+glyph comes out an empty box, which is also a moment nalarch is meant for. That case is
+detected rather than left to the user: `TERM=linux` and its kin mean a console, and a console
+cannot draw them whatever anyone configures. A multiplexer is not a console, so `tmux` and
+`screen` keep them.
+
+Outside a console the font cannot be interrogated, so `--no-icons` or `icons = false` in
+`~/.config/nalarch/config` remain for anyone without a patched one. They assume a
+**single-width (Mono)** Nerd Font variant — the double-width ones render across two cells
+while the layout counts one, which shifts every column that follows.
 
 Nothing they show carries meaning on its own: each glyph sits next to the word it decorates,
 on the tabs and in the repository column. Turning them off loses decoration, not information.

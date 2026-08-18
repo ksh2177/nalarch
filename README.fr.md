@@ -141,15 +141,18 @@ une fois remonté elle reste où on l'a mise, et `Fin` reprend le suivi.
 
 ## Icônes
 
-Désactivées par défaut. `--icons` les allume, ou `icons = true` dans
-`~/.config/nalarch/config` ; `NALARCH_ICONS=1` marche aussi, et `--no-icons` l'emporte sur
-tout.
+Actives par défaut, tirées du jeu Material Design que portent les Nerd Fonts.
 
-Le choix d'un réglage explicite compte plus ici que dans la plupart des outils : le moment où
-nalarch sert le plus est un TTY nu après une mise à jour ratée, où aucune Nerd Font n'est
-chargée et où chaque glyphe sortirait en carré vide. Elles supposent aussi une variante
-**mono-chasse (Mono)** — les variantes double largeur dessinent ces glyphes sur deux cellules
-alors que la mise en page en compte une, ce qui décale toutes les colonnes suivantes.
+Le seul endroit où elles ne peuvent pas fonctionner est un TTY nu — aucune police patchée n'y
+est chargée et chaque glyphe sortirait en carré vide, ce qui est aussi un moment où nalarch
+sert. Ce cas est détecté plutôt que laissé à l'utilisateur : `TERM=linux` et ses semblables
+désignent une console, et une console ne sait pas les dessiner quoi qu'on configure. Un
+multiplexeur n'est pas une console : `tmux` et `screen` les gardent.
+
+Hors console, la police ne peut pas être interrogée : `--no-icons` ou `icons = false` dans
+`~/.config/nalarch/config` restent donc là pour qui n'en a pas de patchée. Elles supposent une
+variante **mono-chasse (Mono)** — les variantes double largeur dessinent ces glyphes sur deux
+cellules alors que la mise en page en compte une, ce qui décale toutes les colonnes suivantes.
 
 Rien de ce qu'elles montrent ne porte de sens à soi seul : chaque glyphe accompagne le mot
 qu'il décore, sur les onglets et dans la colonne du dépôt. Les éteindre fait perdre de la

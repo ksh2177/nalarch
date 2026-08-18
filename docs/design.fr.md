@@ -86,6 +86,13 @@ Ce même saut de ligne manquant explique que le choix par défaut soit lu sur l'
 plutôt que dans le flux : le découpeur garde une ligne inachevée dans son tampon et ne l'émet
 jamais.
 
+Les lignes sont groupées plutôt que listées. Une liste plate laissait `go` sans raison
+donnée — du point de vue du lecteur, aussi bien un bug qu'une dépendance de compilation. Ce
+que deviennent ces dépendances ensuite est lu dans la configuration de paru plutôt que
+supposé : `RemoveMake` est un réglage par utilisateur, et une dépendance de compilation peut
+être six cents mégaoctets de compilateur — la différence entre « retirée » et « reste
+installée » mérite d'être dite juste.
+
 Les colonnes de cette table sont alignées et non délimitées : ses lignes se lisent donc par la
 forme — le premier champ porte `dépôt/nom`, un `Yes`/`No` final est l'indicateur de
 compilation seule, et ce qui reste est une version pour une installation, deux pour une mise
