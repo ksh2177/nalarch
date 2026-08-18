@@ -214,6 +214,7 @@ fn package_list(f: &mut Frame, app: &mut App, zone: Rect) {
         let msg = t(match app.current_tab() {
             Tab::Updates => "System is up to date.",
             Tab::Orphans => "No orphans.",
+            Tab::Installed => "No explicit package matches. The Search tab covers every package.",
             _ => "Nothing to show.",
         });
         let p = Paragraph::new(Line::from(Span::styled(
@@ -221,6 +222,7 @@ fn package_list(f: &mut Frame, app: &mut App, zone: Rect) {
             Style::default().fg(theme::GREEN),
         )))
         .alignment(Alignment::Center)
+        .wrap(Wrap { trim: true })
         .block(framed(&title));
         f.render_widget(p, zone);
         return;
@@ -927,6 +929,53 @@ fn status_line(f: &mut Frame, app: &App, zone: Rect) {
                     summary,
                     Style::default().fg(theme::FG).add_modifier(Modifier::BOLD),
                 ),
+            ])),
+            zone,
+        );
+        return;
+    }
+
+    // What this tab leaves out is larger than what it shows, and nothing else
+    // says so. Without it, "Installed 261" next to "1883 packages" in the header
+    // is a contradiction the reader has to resolve alone.
+    if app.current_tab() == Tab::Installed {
+        // Searching this tab for a dependency is the trap. The filter matches
+        // descriptions too, so unrelated rows come back while the package looked
+        // for is simply absent — and the reader concludes it is not installed.
+        // Five times out of six on a normal machine, that conclusion is wrong.
+        let hidden = (!app.filter.is_empty())
+            .then(|| {
+                let wanted = app.filter.to_lowercase();
+                app.state
+                    .installed
+                    .iter()
+                    .find(|p| p.name.to_lowercase() == wanted && !p.is_root())
+                    .map(|p| p.name.clone())
+            })
+            .flatten();
+        let (text, colour) = match hidden {
+            Some(name) => (
+                tf(
+                    "{0} is installed, as a dependency. This tab lists only what nothing depends on.",
+                    &[&name],
+                ),
+                theme::CYAN,
+            ),
+            None => (
+                tf(
+                    "{0} explicit packages of {1} installed — dependencies are not listed here",
+                    &[
+                        &app.state.installed.iter().filter(|p| p.is_root()).count().to_string(),
+                        &app.state.installed.len().to_string(),
+                    ],
+                ),
+                theme::DIM,
+            ),
+        };
+        f.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled(" ● ", Style::default().fg(theme::ACCENT)),
+                Span::styled(text, Style::default().fg(colour)),
             ])),
             zone,
         );

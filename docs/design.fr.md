@@ -219,5 +219,6 @@ vérifier la mise en page, produire une capture, ou déboguer depuis un script.
 | `23` | la table de résolution de paru avec sa demande de confirmation |
 | `24` | paru bloqué sur un choix de fournisseur |
 | `25` | une compilation AUR, avec les séquences que makepkg émet vraiment |
+| `26` | l'onglet Installés filtré sur une dépendance (`--query <nom>`) |
 | `18` | plan de retour arrière construit à partir de celle-ci |
 | `19` | sortie brute de paru en fin d'exécution (4ᵉ nombre = lignes remontées) |

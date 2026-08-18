@@ -53,6 +53,13 @@ par quelque chose qui reste.
 Le panneau de détails affiche systématiquement **qui dépend du paquet sélectionné**
 (`Requis par` / `Optionnel pour`) — l'information à regarder avant toute suppression.
 
+**Installés** laisse volontairement de côté les dépendances : 261 paquets sur 1883 sur une
+machine ordinaire. C'est ce qui en fait la liste de *tes* applications plutôt qu'un déversoir
+du système — mais c'est aussi pourquoi y chercher une dépendance ne donne rien. La ligne
+d'état le dit, et nomme le paquet quand il est malgré tout installé. Pour demander « est-ce
+que c'est là ? » à propos de n'importe quoi, l'onglet Recherche couvre tous les paquets,
+installés ou non.
+
 ## Historique et retour arrière
 
 L'onglet **Historique** lit `/var/log/pacman.log` plutôt qu'un journal qui lui serait propre.

@@ -211,5 +211,6 @@ Useful to check the layout, produce a capture, or debug from a script.
 | `23` | paru's resolution table with its confirmation prompt |
 | `24` | paru blocked on a provider choice |
 | `25` | an AUR build, with the escape sequences makepkg really emits |
+| `26` | the Installed tab filtered on a dependency (`--query <name>`) |
 | `18` | the rollback plan built from that transaction |
 | `19` | paru's raw output at the end of a run (4th number = lines scrolled back) |

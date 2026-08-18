@@ -673,6 +673,16 @@ fn dump(args: &[String]) -> Result<()> {
                 }
             }
         }
+        // 26: the Installed tab filtered on a name that is installed only as a
+        // dependency — where one would wrongly conclude it is not installed.
+        26 => {
+            app.tab = 1;
+            app.filter = std::env::args()
+                .skip_while(|a| a != "--query")
+                .nth(1)
+                .unwrap_or_else(|| "glibc".into());
+            app.go_to(0);
+        }
         n => {
             app.tab = n.min(4);
             app.go_to(0);

@@ -50,6 +50,12 @@ build, a partial upgrade, a kernel update, a package still needed by something t
 The detail panel always shows **what depends on the selected package** (`Required by` /
 `Optional for`) — the thing to look at before any removal.
 
+**Installed** deliberately leaves out dependencies: 261 packages out of 1883 on a normal
+machine. That is what makes it a list of *your* applications rather than a dump of the
+system — but it also means searching it for a dependency finds nothing. The status line says
+so, and names the package when it is installed after all. To ask "is this here?" about
+anything at all, the Search tab covers every package, installed or not.
+
 ## History and rollback
 
 The **History** tab reads `/var/log/pacman.log` rather than a journal of its own. Every
