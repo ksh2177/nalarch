@@ -246,6 +246,11 @@ impl Journal {
             if !self.in_resolution {
                 self.resolution.clear();
                 self.in_resolution = true;
+                // Reaching the table means the numbered question before it has
+                // been answered. Left standing, it kept the screen showing which
+                // provider to pick while paru had moved on to asking whether to
+                // proceed — with the answer to that question nowhere in sight.
+                self.choice = None;
             }
             return;
         }
@@ -855,6 +860,26 @@ mod tests {
         assert_eq!(c.candidates[0].name, "plakar");
         assert_eq!(c.candidates[0].group, "AUR");
         assert_eq!(c.candidates[1].name, "plakar-git");
+    }
+
+    /// Reaching paru's resolution table means the question before it has been
+    /// answered. Left standing, it kept the screen showing which provider to
+    /// pick while paru had moved on to asking whether to proceed.
+    #[test]
+    fn the_question_goes_when_the_table_arrives() {
+        let j = replay(&[
+            ":: There are 2 providers available for plakar:",
+            ":: Repository AUR:",
+            "    1) plakar  2) plakar-git",
+            "Enter a number (default=1): 1",
+            ":: Calculating conflicts...",
+            "Repo (1)        Old Version  New Version  Make Only",
+            "extra/go                     2:1.26.6-1   Yes",
+            "Aur (1)         Old Version  New Version  Make Only",
+            "aur/plakar                   1.1.0-1      No",
+        ]);
+        assert!(j.choice.is_none());
+        assert_eq!(j.resolution.len(), 2);
     }
 
     /// Answering it starts the work, and the question stops being one.

@@ -603,6 +603,43 @@ fn dump(args: &[String]) -> Result<()> {
                 }
             }
         }
+        // 27: a numbered question that has been answered into. The echoed digit
+        // lands on the prompt's own line, which is exactly what used to make
+        // "input expected" disappear while paru was still waiting.
+        27 => {
+            let script = concat!(
+                ":: There are 2 providers available for plakar:\\n",
+                ":: Repository AUR:\\n",
+                "    1) plakar  2) plakar-git\\n",
+                "Enter a number (default=1): ",
+            );
+            app.intent = Some(app::Intent {
+                display_command: None,
+                title: i18n::t("Demo").into(),
+                cmd: vec![
+                    "sh".into(),
+                    "-c".into(),
+                    // The digit is echoed the way a terminal would, with no
+                    // newline: the question is still open.
+                    format!("printf '{script}'; sleep 1; printf '1'; sleep 5"),
+                ],
+                plan: plan::empty(),
+                risks: Vec::new(),
+                removal: false,
+                notes: vec![i18n::t("demo render").into()],
+            });
+            app.mode = Mode::Plan;
+            app.start(
+                height.saturating_sub(ui::RUN_CHROME),
+                width.saturating_sub(2),
+            );
+            for _ in 0..80 {
+                std::thread::sleep(Duration::from_millis(25));
+                if let Some(s) = app.session.as_mut() {
+                    s.pump();
+                }
+            }
+        }
         // 19: paru's raw output (the "j" key) at the end of a run — used to
         // check that the *last* line produced is really visible.
         19 => {

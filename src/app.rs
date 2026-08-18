@@ -224,6 +224,23 @@ impl App {
         self.list.selected().and_then(|i| self.search.hits().get(i))
     }
 
+    /// Checked results qualified by their repository — `aur/plakar`,
+    /// `extra/ripgrep`.
+    ///
+    /// Without the prefix, `paru -S plakar` is ambiguous: `plakar-git` provides
+    /// `plakar` too, so paru asks which one is meant — after the choice has
+    /// already been made by picking a row. The prefix is the syntax paru prints
+    /// in its own resolution table, and it settles the question before it can be
+    /// asked.
+    pub fn checked_targets(&self) -> Vec<String> {
+        self.search
+            .hits()
+            .iter()
+            .filter(|h| self.checked.contains(&h.name))
+            .map(|h| format!("{}/{}", h.repo, h.name))
+            .collect()
+    }
+
     /// Names checked in the search tab, split by where they come from: pacman
     /// resolves the repository ones, paru is the only one that knows the rest.
     pub fn checked_hits(&self) -> (Vec<String>, Vec<String>) {
@@ -664,8 +681,7 @@ impl App {
             return None;
         }
         let plan = plan::install_plan(&self.state, &repos, &aur);
-        let mut targets = repos.clone();
-        targets.extend(aur.iter().cloned());
+        let targets = self.checked_targets();
 
         let mut cmd = vec!["paru".to_string(), "-S".to_string()];
         // As with an upgrade, paru keeps its questions when the AUR is involved:

@@ -65,6 +65,12 @@ such:
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
+Targets are handed to paru qualified by their repository — `aur/plakar`, `extra/ripgrep`.
+Without the prefix, `paru -S plakar` is ambiguous, because `plakar-git` provides `plakar` too:
+paru asks which one is meant, after the choice has already been made by picking a row. The
+prefix is the syntax paru prints in its own resolution table, and it settles the question
+before it can be asked.
+
 paru also asks numbered questions, and those were worse: `Enter a number (default=1):` has
 neither brackets nor a question mark, so it was not recognised as a prompt at all. nalarch
 announced that nothing was expected while paru sat blocked on a provider choice. A trailing
@@ -78,6 +84,12 @@ precisely because a prompt has none.
 │ 2 plakar-git         AUR                                                 │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
+
+The question is also held rather than recomputed each frame. Detection reads the line the
+cursor sits on, and the first character of an answer is echoed onto that same line — so the
+shape stops matching the moment one starts typing, and "input expected" vanished while paru
+was still waiting. It is cleared when a complete line arrives, which only happens once paru
+has something new to say.
 
 That same missing newline is why the default is read off the emulated screen rather than from
 the stream: the line splitter holds an unterminated line in its buffer and never emits it.
@@ -212,5 +224,6 @@ Useful to check the layout, produce a capture, or debug from a script.
 | `24` | paru blocked on a provider choice |
 | `25` | an AUR build, with the escape sequences makepkg really emits |
 | `26` | the Installed tab filtered on a dependency (`--query <name>`) |
+| `27` | a numbered question that has been answered into |
 | `18` | the rollback plan built from that transaction |
 | `19` | paru's raw output at the end of a run (4th number = lines scrolled back) |

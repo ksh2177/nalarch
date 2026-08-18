@@ -38,6 +38,15 @@ pub struct Session {
     /// follows is then explained by the interruption, not by an error.
     pub interrupted: bool,
     splitter: LineSplitter,
+    /// The question paru is waiting on, held until its output moves on.
+    ///
+    /// Detection reads the line the cursor sits on, which stops matching the
+    /// moment the first character of an answer is echoed onto it. Recomputing
+    /// it from scratch each frame therefore made "input expected" vanish as soon
+    /// as one started typing — the screen said paru was busy while it sat
+    /// waiting. It is cleared when a complete line arrives, which only happens
+    /// once paru has something new to say.
+    prompt: Option<Prompt>,
     /// Start of the stopwatch shown next to the bar.
     started: Instant,
     /// End. The stopwatch has to stop with the process, otherwise it keeps
@@ -223,6 +232,7 @@ impl Session {
             started: Instant::now(),
             ended: None,
             splitter: LineSplitter::default(),
+            prompt: None,
         })
     }
 
@@ -248,12 +258,24 @@ impl Session {
                 change = true;
             }
         }
+        if change {
+            if let Some(question) = self.detect_prompt() {
+                self.prompt = Some(question);
+            }
+        }
         change
     }
 
     /// Splits the raw stream into lines and extracts progress from them.
     fn absorber(&mut self, bytes: &[u8]) {
-        for line in self.splitter.push(bytes) {
+        let lines = self.splitter.push(bytes);
+        // A completed line means paru has moved on: whatever it was waiting for
+        // has been answered. Typing an answer echoes characters without ever
+        // completing a line, so the question survives being answered into.
+        if !lines.is_empty() {
+            self.prompt = None;
+        }
+        for line in lines {
             self.journal.analyze(&line);
         }
     }
@@ -394,7 +416,15 @@ impl Session {
     /// whole screen: when paru asks a question, the cursor sits right after it.
     /// A question already answered stays displayed higher up but no longer holds
     /// the cursor, so it raises no false positive.
+    /// The question paru is waiting on, if any.
     pub fn prompt(&self) -> Option<Prompt> {
+        if !self.running() {
+            return None;
+        }
+        self.prompt.clone()
+    }
+
+    fn detect_prompt(&self) -> Option<Prompt> {
         if !self.running() {
             return None;
         }
@@ -426,6 +456,7 @@ impl Session {
 
 }
 
+#[derive(Clone)]
 pub struct Prompt {
     pub text: String,
     /// True for a password entry: nothing must appear.
@@ -514,6 +545,16 @@ mod tests {
         assert!(is_question("procéder à l'installation ? [o/n]"));
         assert!(is_question(":: proceed with installation? [y/n]"));
         assert!(!is_question("(1/3) upgrading fastfetch"));
+    }
+
+    /// Once an answer is typed, the echo lands on the same line and the shape
+    /// stops matching — which is why the question is held rather than
+    /// recomputed. This checks the detector really does stop matching, so the
+    /// holding is not covering for something else.
+    #[test]
+    fn a_prompt_stops_matching_once_it_is_answered_into() {
+        assert!(is_question("enter a number (default=1):"));
+        assert!(!is_question("enter a number (default=1): 1"));
     }
 
     /// The shape that was missed: no brackets, no question mark. paru sat
