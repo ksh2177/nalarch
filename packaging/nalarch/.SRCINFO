@@ -14,6 +14,6 @@ pkgbase = nalarch
 	depends = gcc-libs
 	depends = glibc
 	source = nalarch-0.2.1.tar.gz::https://github.com/ksh2177/nalarch/archive/refs/tags/v0.2.1.tar.gz
-	sha256sums = SKIP
+	sha256sums = c0e62d6b05b991deffeb41211b2a83c904705d649b741ae86b16f38885b6ec3b
 
 pkgname = nalarch
