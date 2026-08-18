@@ -113,6 +113,14 @@ phases, actions, and the common warnings — and the result goes through the sam
 layer as the rest of the interface. An unrecognised message passes through as it is, because
 an English sentence beats a lost one.
 
+makepkg is the noisiest source in the stream and needed three things of its own. Its colour
+resets end with `ESC ( B`, a two-byte charset designation: dropping only the first byte left
+the `B` behind, so every step read "Checking sources...B". Its warnings and errors arrive
+through the same `==>` marker as its steps, and filed as steps they sat buried among forty
+others rather than in **Worth noting**. And a build has no measurable progress, so the counter
+inherited from the phase before it has to go — kept, it pinned the bar at a flat 0.0 % for
+minutes, which reads as stuck rather than as unmeasurable.
+
 That parsing is what makes the transcript possible. nalarch used to keep only a counter and
 a phase: enough to fill a bar, not enough to tell the story of the operation.
 
@@ -202,5 +210,6 @@ Useful to check the layout, produce a capture, or debug from a script.
 | `22` | a long transcript (4th number = first event shown, 5th = raw output) |
 | `23` | paru's resolution table with its confirmation prompt |
 | `24` | paru blocked on a provider choice |
+| `25` | an AUR build, with the escape sequences makepkg really emits |
 | `18` | the rollback plan built from that transaction |
 | `19` | paru's raw output at the end of a run (4th number = lines scrolled back) |

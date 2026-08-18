@@ -66,7 +66,7 @@ impl Action {
             Action::Reinstalled => "Reinstalled",
             Action::Removed => "Removed",
             Action::Hook => "Hook",
-            Action::Built => "Built",
+            Action::Built => "Building",
         })
     }
 
@@ -298,12 +298,35 @@ impl Journal {
 
         // makepkg: its steps have no counter, only markers.
         if let Some(rest) = l.strip_prefix("==>").or_else(|| l.strip_prefix("->")) {
-            let step = rest.trim().to_string();
-            if !step.is_empty() {
-                self.phase = Phase::Building;
-                self.compilation = Some(step.clone());
-                self.push_event(Action::Built, step, String::new());
+            let step = rest.trim();
+            if step.is_empty() {
+                return;
             }
+            // makepkg raises its own warnings and errors through the same
+            // marker. Filing them as build steps buried them among forty others,
+            // where they are exactly what one wants surfaced.
+            if let Some(w) = step.strip_prefix("WARNING:") {
+                self.warning(w.trim());
+                return;
+            }
+            if let Some(e) = step.strip_prefix("ERROR:") {
+                let e = e.trim().to_string();
+                if !self.errors.contains(&e) {
+                    self.errors.push(e);
+                }
+                return;
+            }
+            // A build has no measurable progress, and the counter left over from
+            // the phase before it does not describe one. Keeping it turned the
+            // bar into a flat 0.0 % for the whole compilation, which reads as
+            // stuck rather than as unmeasurable.
+            if self.phase != Phase::Building {
+                self.counter = None;
+                self.percent = None;
+            }
+            self.phase = Phase::Building;
+            self.compilation = Some(step.to_string());
+            self.push_event(Action::Built, step.to_string(), String::new());
             return;
         }
 
@@ -779,6 +802,37 @@ mod tests {
         ]);
         assert_eq!(j.pacnew, vec!["/etc/pacman.conf.pacnew".to_string()]);
         assert_eq!(j.warnings.len(), 1);
+    }
+
+    /// A build has no measurable progress. Carrying the counter of the phase
+    /// before it into the build turned the bar into a flat 0.0 % for minutes,
+    /// which reads as stuck rather than as unmeasurable.
+    #[test]
+    fn a_build_drops_the_counter_it_inherited() {
+        let j = replay(&[
+            ":: Processing package changes...",
+            "(1/1) upgrading fastfetch [###] 100%",
+            "==> Making package: plakar-git 1.0.3.r384",
+            "==> Starting build()...",
+        ]);
+        assert_eq!(j.phase, Phase::Building);
+        assert_eq!(j.counter, None);
+        assert_eq!(j.percent, None);
+    }
+
+    /// makepkg raises its own warnings through the same marker as its steps.
+    /// Filed as a step, a warning sat buried among forty others.
+    #[test]
+    fn makepkg_warnings_are_not_build_steps() {
+        let j = replay(&[
+            "==> Starting build()...",
+            "==> WARNING: Using existing $srcdir/ tree",
+            "==> ERROR: A failure occurred in build().",
+        ]);
+        assert_eq!(j.warnings, vec!["Using existing $srcdir/ tree".to_string()]);
+        assert_eq!(j.errors, vec!["A failure occurred in build().".to_string()]);
+        // Only the real step remains one.
+        assert_eq!(j.events.len(), 1);
     }
 
     /// Two AUR packages can provide the same thing, and paru asks which one.

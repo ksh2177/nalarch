@@ -48,22 +48,47 @@ pub struct Session {
 /// Strips ANSI escape sequences from a line before analysing it.
 fn strip_ansi(s: &str) -> String {
     let mut output = String::with_capacity(s.len());
-    let mut car = s.chars().peekable();
-    while let Some(c) = car.next() {
+    let mut chars = s.chars().peekable();
+    while let Some(c) = chars.next() {
         if c != '\x1b' {
             output.push(c);
             continue;
         }
-        // CSI: ESC [ parameters… final byte between @ and ~.
-        if car.peek() == Some(&'[') {
-            car.next();
-            for f in car.by_ref() {
-                if ('@'..='~').contains(&f) {
-                    break;
+        match chars.peek().copied() {
+            // CSI: ESC [ parameters… final byte between @ and ~.
+            Some('[') => {
+                chars.next();
+                for f in chars.by_ref() {
+                    if ('@'..='~').contains(&f) {
+                        break;
+                    }
                 }
             }
-        } else {
-            car.next();
+            // Character set designation: ESC ( B and friends. Two bytes follow,
+            // not one — dropping only the first left the `B` on screen, which is
+            // how every makepkg message came out as "Checking sources...B". It
+            // is the tail of `tput sgr0`, so it appeared on all of them.
+            Some('(') | Some(')') | Some('*') | Some('+') => {
+                chars.next();
+                chars.next();
+            }
+            // Strings terminated by BEL or ST: OSC and its cousins.
+            Some(']') | Some('P') | Some('_') | Some('^') | Some('X') => {
+                chars.next();
+                while let Some(f) = chars.next() {
+                    if f == '\x07' {
+                        break;
+                    }
+                    if f == '\x1b' && chars.peek() == Some(&'\\') {
+                        chars.next();
+                        break;
+                    }
+                }
+            }
+            // Everything else is a single-character escape.
+            _ => {
+                chars.next();
+            }
         }
     }
     output
@@ -436,6 +461,25 @@ mod tests {
     fn ansi_sequences_disappear() {
         assert_eq!(strip_ansi("\x1b[1;32m==>\x1b[0m Cleaning…"), "==> Cleaning…");
         assert_eq!(strip_ansi("no colour"), "no colour");
+    }
+
+    /// `tput sgr0` ends with `ESC ( B`, a two-byte charset designation. Dropping
+    /// only the first byte left the `B` behind, and makepkg resets its colours
+    /// on every message — so every build step read "Checking sources...B".
+    #[test]
+    fn a_charset_designation_does_not_leave_its_letter_behind() {
+        assert_eq!(
+            strip_ansi("\x1b[1m\x1b[34m==>\x1b(B\x1b[m Checking sources...\x1b(B\x1b[m"),
+            "==> Checking sources..."
+        );
+    }
+
+    /// A window title is a string escape, terminated by BEL or ST rather than by
+    /// a final byte in a range.
+    #[test]
+    fn a_string_escape_is_swallowed_whole() {
+        assert_eq!(strip_ansi("\x1b]0;building\x07done"), "done");
+        assert_eq!(strip_ansi("\x1b]0;building\x1b\\done"), "done");
     }
 
     /// The stream arrives in byte chunks of arbitrary size: a read may well cut

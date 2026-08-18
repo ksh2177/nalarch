@@ -566,6 +566,43 @@ fn dump(args: &[String]) -> Result<()> {
                 }
             }
         }
+        // 25: an AUR build in progress, with the escape sequences makepkg
+        // really emits and a counter inherited from the phase before it.
+        25 => {
+            let esc = "\\033";
+            let script = format!(
+                concat!(
+                    ":: Processing package changes...\\n",
+                    "(1/1) upgrading fastfetch [####] 100%%\\n",
+                    "{e}[1m{e}[34m==>{e}(B{e}[m Making package: plakar-git 1.0.3.r384{e}(B{e}[m\\n",
+                    "{e}[1m{e}[34m==>{e}(B{e}[m Checking runtime dependencies...{e}(B{e}[m\\n",
+                    "{e}[1m{e}[34m==>{e}(B{e}[m Starting build()...{e}(B{e}[m\\n",
+                    "{e}[1m{e}[33m==> WARNING:{e}(B{e}[m Using existing $srcdir/ tree{e}(B{e}[m\\n",
+                    "{e}[1m{e}[34m==>{e}(B{e}[m Starting check()...{e}(B{e}[m\\n",
+                ),
+                e = esc
+            );
+            app.intent = Some(app::Intent {
+                display_command: None,
+                title: i18n::t("Demo").into(),
+                cmd: vec!["sh".into(), "-c".into(), format!("printf '{script}'; sleep 5")],
+                plan: plan::empty(),
+                risks: Vec::new(),
+                removal: false,
+                notes: vec![i18n::t("demo render").into()],
+            });
+            app.mode = Mode::Plan;
+            app.start(
+                height.saturating_sub(ui::RUN_CHROME),
+                width.saturating_sub(2),
+            );
+            for _ in 0..40 {
+                std::thread::sleep(Duration::from_millis(25));
+                if let Some(s) = app.session.as_mut() {
+                    s.pump();
+                }
+            }
+        }
         // 19: paru's raw output (the "j" key) at the end of a run — used to
         // check that the *last* line produced is really visible.
         19 => {

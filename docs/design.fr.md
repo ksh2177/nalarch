@@ -119,6 +119,15 @@ Rien de cet anglais n'atteint l'écran : `src/journal.rs` réécrit tout — les
 actions, et les avertissements courants. Un message non reconnu passe tel quel, parce qu'une
 phrase anglaise vaut mieux qu'une information perdue.
 
+makepkg est la source la plus bruyante du flux et a demandé trois choses à lui seul. Ses
+remises à zéro de couleur se terminent par `ESC ( B`, une désignation de jeu de caractères sur
+deux octets : n'en retirer qu'un laissait le `B`, et chaque étape s'affichait « Checking
+sources...B ». Ses avertissements et ses erreurs arrivent par le même marqueur `==>` que ses
+étapes, et classés comme étapes ils se noyaient parmi quarante autres au lieu d'aller dans
+**À noter**. Et une compilation n'a pas d'avancement chiffrable : le compteur hérité de la
+phase précédente doit donc disparaître — conservé, il figeait la barre à 0,0 % pendant des
+minutes, ce qui se lit comme bloqué plutôt que comme non mesurable.
+
 C'est cette analyse qui permet la transcription. nalarch ne retenait auparavant qu'un
 compteur et une phase : de quoi remplir une barre, pas de quoi raconter l'opération.
 
@@ -209,5 +218,6 @@ vérifier la mise en page, produire une capture, ou déboguer depuis un script.
 | `22` | une transcription longue (4ᵉ nombre = premier événement, 5ᵉ = sortie brute) |
 | `23` | la table de résolution de paru avec sa demande de confirmation |
 | `24` | paru bloqué sur un choix de fournisseur |
+| `25` | une compilation AUR, avec les séquences que makepkg émet vraiment |
 | `18` | plan de retour arrière construit à partir de celle-ci |
 | `19` | sortie brute de paru en fin d'exécution (4ᵉ nombre = lignes remontées) |

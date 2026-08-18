@@ -2126,7 +2126,7 @@ fn run_footer(
             format!(
                 " {} · {}",
                 toggle,
-                t("↑↓ scroll · every other key is forwarded to paru")
+                t("↑↓ PgUp PgDn Home End scroll · every other key goes to paru")
             ),
             theme::DIM,
         ),
@@ -2135,7 +2135,7 @@ fn run_footer(
                 " {} · {} · {}",
                 t("Finished"),
                 toggle,
-                t("↑↓ PgUp PgDn scroll · Enter to return")
+                t("↑↓ PgUp PgDn Home End scroll · Enter to return")
             ),
             theme::GREEN,
         ),
@@ -2150,7 +2150,7 @@ fn run_footer(
                         tf("Failed (code {0})", &[&c.to_string()])
                     },
                     toggle,
-                    t("↑↓ PgUp PgDn scroll · Enter back to the table")
+                    t("↑↓ PgUp PgDn Home End scroll · Enter back to the table")
                 )
             ),
             theme::RED,
