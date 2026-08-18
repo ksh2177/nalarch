@@ -386,6 +386,7 @@ const FR: &[(&str, &str)] = &[
      "rejoue une session sans toucher au système"),
     ("render one screen as plain text (no TTY)",
      "rend un écran en texte brut (sans TTY)"),
+    ("the version number", "le numéro de version"),
     ("this message", "ce message"),
 
     // exec.rs

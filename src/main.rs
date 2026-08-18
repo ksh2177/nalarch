@@ -33,6 +33,16 @@ fn main() -> Result<()> {
     i18n::init(&args);
     icons::init(&args);
 
+    // Answered before anything else, and without touching the terminal: this is
+    // what a packager or a bug report asks for, often through a pipe. Left
+    // untranslated — a version string is not prose.
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        use std::io::Write;
+        let line = format!("nalarch {}\n", env!("CARGO_PKG_VERSION"));
+        let _ = std::io::stdout().write_all(line.as_bytes());
+        return Ok(());
+    }
+
     if args.iter().any(|a| a == "--help" || a == "-h") {
         print_help();
         return Ok(());
@@ -90,6 +100,7 @@ fn print_help() {
         ("--no-icons", i18n::t("drop the Nerd Font glyphs")),
         ("--demo", i18n::t("replay a session without touching the system")),
         ("--dump N W H", i18n::t("render one screen as plain text (no TTY)")),
+        ("--version", i18n::t("the version number")),
         ("--help", i18n::t("this message")),
     ] {
         out.push_str(&format!("  nalarch {flag:<14} {what}\n"));
