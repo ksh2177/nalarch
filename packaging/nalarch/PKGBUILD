@@ -1,7 +1,7 @@
 # Maintainer: ksh2177 <ksh2177@pm.me>
 
 pkgname=nalarch
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='TUI package manager for Arch — reads through libalpm, delegates execution to paru'
 arch=('x86_64' 'aarch64')
