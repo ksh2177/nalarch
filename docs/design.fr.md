@@ -186,8 +186,19 @@ reconstruction n'apporte aucune fonctionnalité et explique une mise à jour qui
 gratuite. Les entrées marquées `▸` sont celles qu'apporte la mise à jour ; sous le trait,
 c'est déjà installé.
 
-Les **notes de version amont** viennent de GitHub quand le projet y est hébergé, ce qui
-couvre l'essentiel des paquets d'Arch. Un paquet AUR n'a pas de dépôt de packaging : c'est le
+La ligne au-dessus est celle qu'il faut lire en premier : la mise à jour apporte-t-elle une
+nouvelle version amont, seulement. Une révision de paquetage seule — `6.29.0-1 → 6.29.0-2` —
+signifie une reconstruction, un correctif d'empaquetage ou un changement de dépendance, jamais
+une fonctionnalité. C'est la réponse la plus fréquente et la plus difficile à lire dans une
+liste de commits : elle est donc dite, pas laissée à déduire.
+
+Les **notes de version amont** viennent de GitHub, qui couvre un peu moins de la moitié de ce
+qui est installé sur une machine ordinaire, et des instances GitLab — GNOME, freedesktop,
+l'invent de KDE — qui couvrent une bonne part du reste. Les deux API répondent à la même
+question : prendre en charge la seconde ne coûte qu'une forme de requête de plus. Une instance
+GitLab ne se reconnaît pas à son nom d'hôte : seuls les hôtes qui apparaissent réellement comme
+URL amont sont acceptés, car deviner reviendrait à interroger un serveur sans rapport pour
+chaque paquet. Un paquet AUR n'a pas de dépôt de packaging : c'est le
 PKGBUILD qui fait foi, et paru propose de le relire avant de compiler.
 
 Les requêtes passent par `curl` dans un fil séparé — l'interface ne se fige pas, et ça évite

@@ -177,8 +177,17 @@ rebuild against a library. That is often the most useful answer — a rebuild br
 feature and explains an update that looked gratuitous. Entries marked `▸` are what the update
 brings; below the line is already installed.
 
-The **upstream release notes** come from GitHub when the project is hosted there, which
-covers most of Arch. An AUR package has no packaging repository: the PKGBUILD is the source
+The line above them is the one worth reading first: whether the update is a new upstream
+version at all. A package release bumped on its own — `6.29.0-1 → 6.29.0-2` — means a rebuild,
+a packaging fix, or a dependency change, never a feature. That is the most common answer and
+the hardest to read off a list of commits, so it is stated rather than left to be inferred.
+
+The **upstream release notes** come from GitHub, which covers a bit under half of what is
+installed on a typical machine, and from the GitLab instances — GNOME, freedesktop, KDE's
+invent — which cover a good part of the rest. Both APIs answer the same question, so
+supporting the second costs one more request shape. A GitLab instance cannot be told from any
+other host by name, so only the hosts that actually appear as upstream URLs are matched:
+guessing would mean a request to an unrelated server for every package. An AUR package has no packaging repository: the PKGBUILD is the source
 of truth, and paru offers to show it before building.
 
 The requests go through `curl` on a separate thread — the interface does not freeze, and it

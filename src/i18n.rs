@@ -172,6 +172,12 @@ const FR: &[(&str, &str)] = &[
     ("none", "rien"),
     ("drop the Nerd Font glyphs", "retire les glyphes Nerd Font"),
 
+    ("Same upstream version ({0}) — a packaging change: a rebuild, a fix, or a dependency bump.",
+     "Même version amont ({0}) — un changement d'empaquetage : reconstruction, correctif ou dépendance."),
+    ("New upstream version: {0} → {1}", "Nouvelle version amont : {0} → {1}"),
+    ("Not hosted on GitHub or GitLab. Release notes, if any, are at {0}",
+     "Pas hébergé sur GitHub ni GitLab. Les notes de version, s'il y en a, sont sur {0}"),
+
     // ui.rs
     ("j paru's raw output", "j sortie brute de paru"),
     ("j back to the transcript", "j revenir à la transcription"),

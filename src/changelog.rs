@@ -138,22 +138,128 @@ fn fetch(package: &str, to_version: &str, aur: bool) -> Content {
     }
 
     if let Some(url) = c.url.clone() {
-        if let Some((owner, repo)) = github(&url) {
-            let (notes, tag) = github_release_notes(&owner, &repo, to_version);
-            c.upstream = notes;
-            c.upstream_tag = tag;
-            if c.upstream.is_empty() {
-                c.gaps
-                    .push(crate::i18n::t("No release notes published for this tag.").to_string());
+        // GitHub covers a bit under half of what is installed here; the GitLab
+        // instances — GNOME, freedesktop, KDE's invent — most of the rest that
+        // is hosted anywhere at all. The two APIs answer the same question, so
+        // supporting both costs one more request shape.
+        let fetched = match forge(&url) {
+            Some(Forge::GitHub { owner, repo }) => {
+                Some(github_release_notes(&owner, &repo, to_version))
             }
-        } else {
-            c.gaps.push(crate::i18n::tf(
-                "Upstream notes cannot be fetched automatically: {0}",
+            Some(Forge::GitLab { host, path }) => {
+                Some(gitlab_release_notes(&host, &path, to_version))
+            }
+            None => None,
+        };
+        match fetched {
+            Some((notes, tag)) => {
+                c.upstream = notes;
+                c.upstream_tag = tag;
+                if c.upstream.is_empty() {
+                    c.gaps
+                        .push(crate::i18n::t("No release notes published for this tag.").to_string());
+                }
+            }
+            // Plenty of projects publish through a website rather than a forge.
+            // Saying where beats claiming nothing exists.
+            None => c.gaps.push(crate::i18n::tf(
+                "Not hosted on GitHub or GitLab. Release notes, if any, are at {0}",
                 &[&url],
-            ));
+            )),
         }
     }
     c
+}
+
+/// The upstream part of a version: no epoch, no package release.
+///
+/// `1:6.29.0-2` and `6.29.0-1` are the same software; only the packaging
+/// differs. Telling them apart is the whole of the verdict below.
+pub fn upstream_version(v: &str) -> String {
+    let v = v.split_once(':').map_or(v, |(_, rest)| rest);
+    match v.rsplit_once('-') {
+        Some((base, _release)) => base.to_string(),
+        None => v.to_string(),
+    }
+}
+
+/// What an update actually brings, in one line.
+///
+/// The most common answer, and the one hardest to read off a list of commits:
+/// nothing new. A package release bumped on its own means a rebuild, a fix to
+/// the packaging, or a dependency change — never a feature. Saying so up front
+/// beats leaving it to be inferred from `6.29.0-1 → 6.29.0-2`.
+pub fn verdict(from: &str, to: &str) -> String {
+    let (a, b) = (upstream_version(from), upstream_version(to));
+    if a == b {
+        crate::i18n::tf(
+            "Same upstream version ({0}) — a packaging change: a rebuild, a fix, or a dependency bump.",
+            &[&b],
+        )
+    } else {
+        crate::i18n::tf("New upstream version: {0} → {1}", &[&a, &b])
+    }
+}
+
+/// Where a project's releases can be asked for.
+enum Forge {
+    GitHub { owner: String, repo: String },
+    GitLab { host: String, path: String },
+}
+
+/// Recognises the two forges whose APIs answer "what is in this release".
+///
+/// A GitLab instance cannot be told from any other host by its name alone, so
+/// only the ones that actually appear as upstream URLs are matched. Guessing
+/// would mean a request to an unrelated server for every package.
+fn forge(url: &str) -> Option<Forge> {
+    if let Some((owner, repo)) = github(url) {
+        return Some(Forge::GitHub { owner, repo });
+    }
+    let rest = url.split_once("://").map(|(_, r)| r).unwrap_or(url);
+    let (host, path) = rest.split_once('/')?;
+    let known = host.starts_with("gitlab.") || host == "invent.kde.org";
+    if !known {
+        return None;
+    }
+    let path = path
+        .trim_end_matches('/')
+        .trim_end_matches(".git")
+        .split("/-/")
+        .next()?;
+    (!path.is_empty()).then(|| Forge::GitLab {
+        host: host.to_string(),
+        path: path.to_string(),
+    })
+}
+
+/// Upstream release notes from a GitLab instance.
+///
+/// Same shape as the GitHub one, including trying the tag with and without its
+/// `v`: the project decides, not the packager.
+fn gitlab_release_notes(host: &str, path: &str, version: &str) -> (Vec<String>, Option<String>) {
+    let base = version.split('-').next().unwrap_or(version);
+    let base = base.split_once(':').map_or(base, |(_, v)| v);
+    let project = path.replace('/', "%2F");
+
+    for tag in [base.to_string(), format!("v{base}")] {
+        let url = format!("https://{host}/api/v4/projects/{project}/releases/{tag}");
+        let Some(body) = curl(&url) else { continue };
+        let Ok(v) = serde_json::from_str::<Value>(&body) else {
+            continue;
+        };
+        if let Some(notes) = v.get("description").and_then(Value::as_str) {
+            let rows: Vec<String> = notes
+                .lines()
+                .map(|l| l.trim_end().to_string())
+                .take(60)
+                .collect();
+            if !rows.is_empty() {
+                return (rows, Some(tag));
+            }
+        }
+    }
+    (Vec::new(), None)
 }
 
 /// Arch packaging repository log: says *why* the package changed.
@@ -226,6 +332,52 @@ fn github_release_notes(owner: &str, repo: &str, version: &str) -> (Vec<String>,
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The answer people actually want, and the one a list of commits hides.
+    #[test]
+    fn a_release_bump_alone_is_a_packaging_change() {
+        // What prompted this: baloo 6.29.0-1 → 6.29.0-2, "fix lmdb linking".
+        let v = verdict("6.29.0-1", "6.29.0-2");
+        assert!(v.contains("packaging"), "{v}");
+        assert!(v.contains("6.29.0"), "{v}");
+
+        let v = verdict("6.28.0-1", "6.29.0-1");
+        assert!(v.contains("6.28.0") && v.contains("6.29.0"), "{v}");
+        assert!(!v.contains("packaging"), "{v}");
+    }
+
+    #[test]
+    fn an_epoch_is_not_part_of_the_upstream_version() {
+        assert_eq!(upstream_version("1:26.1.3-2"), "26.1.3");
+        assert_eq!(upstream_version("2.67.1-1"), "2.67.1");
+        // A version with no release at all still reads.
+        assert_eq!(upstream_version("20260810"), "20260810");
+    }
+
+    #[test]
+    fn a_gitlab_instance_is_recognised_by_its_host() {
+        let path = |u: &str| match forge(u) {
+            Some(Forge::GitLab { host, path }) => Some(format!("{host}:{path}")),
+            _ => None,
+        };
+        assert_eq!(
+            path("https://gitlab.gnome.org/GNOME/gtk"),
+            Some("gitlab.gnome.org:GNOME/gtk".into())
+        );
+        assert_eq!(
+            path("https://invent.kde.org/frameworks/baloo"),
+            Some("invent.kde.org:frameworks/baloo".into())
+        );
+        // A browsing URL carries a suffix the API does not want.
+        assert_eq!(
+            path("https://gitlab.freedesktop.org/mesa/mesa/-/tree/main"),
+            Some("gitlab.freedesktop.org:mesa/mesa".into())
+        );
+        // A project page is not a forge, and guessing would mean a request to an
+        // unrelated server for every package.
+        assert!(path("https://develop.kde.org/products/frameworks/").is_none());
+        assert!(path("https://www.gnu.org/software/bash/").is_none());
+    }
 
     #[test]
     fn a_github_url_is_recognised() {

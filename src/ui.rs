@@ -2232,7 +2232,7 @@ fn changelog_screen(f: &mut Frame, app: &mut App, zone: Rect) {
     let Some(c) = &app.changelog else { return };
 
     let [top, middle, bottom] = Layout::vertical([
-        Constraint::Length(4),
+        Constraint::Length(5),
         Constraint::Fill(1),
         Constraint::Length(1),
     ])
@@ -2253,6 +2253,20 @@ fn changelog_screen(f: &mut Frame, app: &mut App, zone: Rect) {
                 Style::default().fg(theme::GREEN).add_modifier(Modifier::BOLD),
             ),
         ]),
+        // The verdict first. On a release bump alone the answer is "nothing
+        // new", and that is exactly what a list of commits hides.
+        Line::from(Span::styled(
+            format!(" {}", crate::changelog::verdict(&c.from_version, &c.to_version)),
+            Style::default().fg(
+                if crate::changelog::upstream_version(&c.from_version)
+                    == crate::changelog::upstream_version(&c.to_version)
+                {
+                    theme::YELLOW
+                } else {
+                    theme::GREEN
+                },
+            ),
+        )),
         match &c.state {
             crate::changelog::State::Loading => Line::from(Span::styled(
                 format!(" {}", t("fetching the packaging log and the release notes…")),
