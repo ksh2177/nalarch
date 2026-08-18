@@ -83,14 +83,22 @@ fn main() -> Result<()> {
 /// Usage summary. Deliberately terse: nalarch explains itself on screen, and a
 /// wall of text in the terminal would only delay getting there.
 fn print_help() {
-    println!("nalarch — {}", i18n::t("a TUI package manager for Arch"));
-    println!();
-    println!("  nalarch                {}", i18n::t("start the interface"));
-    println!("  nalarch --lang en|fr   {}", i18n::t("force the interface language"));
-    println!("  nalarch --no-icons     {}", i18n::t("drop the Nerd Font glyphs"));
-    println!("  nalarch --demo         {}", i18n::t("replay a session without touching the system"));
-    println!("  nalarch --dump N W H   {}", i18n::t("render one screen as plain text (no TTY)"));
-    println!("  nalarch --help         {}", i18n::t("this message"));
+    let mut out = format!("nalarch — {}\n\n", i18n::t("a TUI package manager for Arch"));
+    for (flag, what) in [
+        ("", i18n::t("start the interface")),
+        ("--lang en|fr", i18n::t("force the interface language")),
+        ("--no-icons", i18n::t("drop the Nerd Font glyphs")),
+        ("--demo", i18n::t("replay a session without touching the system")),
+        ("--dump N W H", i18n::t("render one screen as plain text (no TTY)")),
+        ("--help", i18n::t("this message")),
+    ] {
+        out.push_str(&format!("  nalarch {flag:<14} {what}\n"));
+    }
+    // Written once, error ignored. `nalarch --help | head` closes the pipe
+    // partway through, and a `println!` panics on that rather than stopping —
+    // a help text that crashes when piped is a poor first impression.
+    use std::io::Write;
+    let _ = std::io::stdout().write_all(out.as_bytes());
 }
 
 fn dump(args: &[String]) -> Result<()> {
