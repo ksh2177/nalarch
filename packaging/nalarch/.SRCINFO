@@ -1,6 +1,6 @@
 pkgbase = nalarch
 	pkgdesc = TUI package manager for Arch — reads through libalpm, delegates execution to paru
-	pkgver = 0.1.0
+	pkgver = 0.2.0
 	pkgrel = 1
 	url = https://github.com/ksh2177/nalarch
 	arch = x86_64
@@ -13,7 +13,7 @@ pkgbase = nalarch
 	depends = sudo
 	depends = gcc-libs
 	depends = glibc
-	source = nalarch-0.1.0.tar.gz::https://github.com/ksh2177/nalarch/archive/refs/tags/v0.1.0.tar.gz
-	sha256sums = 6721765edcb43a2e097366577fba56574aebe809f8dd300d75c483dae680b902
+	source = nalarch-0.2.0.tar.gz::https://github.com/ksh2177/nalarch/archive/refs/tags/v0.2.0.tar.gz
+	sha256sums = b4ea1a8fa4752987d190610a4617f06cf41f429c7711010e45b93fd6134401c2
 
 pkgname = nalarch
