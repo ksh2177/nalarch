@@ -1,6 +1,6 @@
 [package]
 name = "nalarch"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "A TUI package manager for Arch — reads through libalpm, delegates execution to paru"
 license = "MIT"

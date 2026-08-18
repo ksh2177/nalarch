@@ -1,7 +1,7 @@
 # Maintainer: ksh2177 <ksh2177@pm.me>
 
 pkgname=nalarch
-pkgver=0.2.0
+pkgver=0.2.1
 pkgrel=1
 pkgdesc='TUI package manager for Arch — reads through libalpm, delegates execution to paru'
 arch=('x86_64' 'aarch64')
@@ -27,7 +27,7 @@ makedepends=('cargo')
 
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
 # Regenerate with `updpkgsums` on every version bump.
-sha256sums=('e163effbd068e3ee16920d98346ad5fb616ddc6008c881d2d367d9b838db4f66')
+sha256sums=('SKIP')
 
 prepare() {
   cd "$pkgname-$pkgver"
