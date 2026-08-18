@@ -27,15 +27,24 @@ Set TypingSpeed 60ms
 Set Theme { "background": "#1f1f22", "foreground": "#e4e1e5", "cursor": "#bdc4f0", "selection": "#353437", "black": "#424247", "brightBlack": "#55555c", "red": "#ffb4ab", "brightRed": "#ffd0c9", "green": "#96d5b8", "brightGreen": "#aff5b4", "yellow": "#ebcb8b", "brightYellow": "#f2cc60", "blue": "#bdc4f0", "brightBlue": "#d2d8ff", "magenta": "#dba0c4", "brightMagenta": "#b48ead", "cyan": "#88c0d0", "brightCyan": "#a5d6ff", "white": "#c6c5cf", "brightWhite": "#e4e1e5" }
 
 # ── The plan: what the transaction will really do ──────────────────────────
+#
+# The command is typed on camera. Opening on a still frame left a reader
+# unsure the thing moved at all, and this doubles as saying how to launch it.
+# Only the locale is set out of shot, so the visible line stays the real one.
 Hide
-Type "nalarch --lang en --icons --demo"
+Type "export LC_ALL=C LANG=C; clear"
 Enter
-Sleep 2s
 Show
 
+Sleep 700ms
+Type "nalarch --demo"
+Sleep 400ms
+Enter
+Sleep 1600ms
+
 # Long enough to read the points of attention, which is the whole idea, and no
-# longer: this is also the frame the loop comes back to.
-Sleep 3200ms
+# longer: the recording is already moving by the time it lands here.
+Sleep 2800ms
 
 Enter
 Sleep 1800ms
@@ -54,7 +63,7 @@ Enter
 # Downloads, verifications, the install, then the hooks. The script takes about
 # nine seconds from here — measured, not guessed, so the finished screen gets a
 # beat rather than five seconds of nothing.
-Sleep 10500ms
+Sleep 9800ms
 
 # ── Back to the table: what is on the machine ──────────────────────────────
 Enter
