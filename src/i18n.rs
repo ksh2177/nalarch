@@ -133,8 +133,8 @@ const FR: &[(&str, &str)] = &[
      "Un nom par ligne. Ils restent visibles dans l'onglet Orphelins mais ne peuvent pas être cochés pour suppression."),
     ("libalpm only knows about declared dependencies. A package loaded dynamically (a Qt plugin, a Wayland backend, a GStreamer plugin) therefore looks like an orphan while being vital. Hence this list.",
      "libalpm ne connaît que les dépendances déclarées. Un paquet chargé dynamiquement (plugin Qt, backend Wayland, greffon GStreamer) apparaît donc comme orphelin alors qu'il est vital. D'où cette liste."),
-    ("Needed by quickshell (Hyprland shell) with no alpm dependency link:",
-     "Requis par quickshell (shell Hyprland) sans lien de dépendance alpm :"),
+    ("Needed by Qt applications under Wayland, with no alpm dependency link:",
+     "Requis par les applications Qt sous Wayland, sans lien de dépendance alpm :"),
 
     // search.rs
     ("Search", "Recherche"),

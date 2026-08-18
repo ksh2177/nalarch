@@ -583,7 +583,7 @@ qt6-avif-image-plugin
         t("nalarch — packages protected from removal."),
         t("One name per line. They stay visible in the Orphans tab but cannot be checked for removal."),
         t("libalpm only knows about declared dependencies. A package loaded dynamically (a Qt plugin, a Wayland backend, a GStreamer plugin) therefore looks like an orphan while being vital. Hence this list."),
-        t("Needed by quickshell (Hyprland shell) with no alpm dependency link:"),
+        t("Needed by Qt applications under Wayland, with no alpm dependency link:"),
     )
 }
 

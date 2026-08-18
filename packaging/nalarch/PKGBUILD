@@ -17,6 +17,9 @@ depends=(
   'pacman-contrib'   # checkupdates, paccache, pacdiff
   'paru'             # every write action is delegated to it
   'sudo'             # cache cleaning and rollbacks are run through it
+  # `curl` is invoked directly, for the AUR search and the changelog. It is not
+  # listed: pacman depends on it, so listing it again would be redundant — but
+  # it is a real requirement, not an accident of the environment.
   'gcc-libs'
   'glibc'
 )
