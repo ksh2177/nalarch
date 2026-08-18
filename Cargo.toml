@@ -1,0 +1,36 @@
+[package]
+name = "nalarch"
+version = "0.1.0"
+edition = "2021"
+description = "A TUI package manager for Arch — reads through libalpm, delegates execution to paru"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/ksh2177/nalarch"
+keywords = ["arch", "pacman", "paru", "tui", "package-manager"]
+categories = ["command-line-utilities"]
+# Not published to crates.io: the crate links against libalpm and only makes
+# sense on an Arch system, where the AUR is the right channel.
+publish = false
+
+[dependencies]
+alpm = "5.0"
+ratatui = "0.30"
+anyhow = "1.0"
+# paru runs in a pseudo terminal: it believes it is on a real one, so it keeps
+# its progress bars and sudo can read the password.
+portable-pty = "0.9"
+# Emulates the screen paru produces (handles \r, cursor, colours).
+# Version pinned to the one tui-term requires.
+vt100 = "0.16.2"
+tui-term = "0.3"
+# Two optional JSON requests (packaging log, release notes).
+serde_json = "1.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+# Neither `strip` nor `debug` is set here, on purpose. makepkg strips the binary
+# itself and builds the separate -debug package out of what it removes, feeding
+# the symbols in through DEBUG_RUSTFLAGS. Setting either one here fights that:
+# stripping early leaves the debug package an empty shell, and forcing debug info
+# makes every local build ten times heavier for nothing.

@@ -1,0 +1,61 @@
+# Maintainer: ksh2177 <ksh2177@pm.me>
+
+pkgname=nalarch
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='TUI package manager for Arch — reads through libalpm, delegates execution to paru'
+arch=('x86_64' 'aarch64')
+url='https://github.com/ksh2177/nalarch'
+license=('MIT')
+
+# pacman is both a runtime tool and the provider of libalpm.so, which the alpm
+# crate links against. The soname is tied to the pacman release: alpm 5.x wants
+# libalpm.so.16, shipped by pacman 7.x — hence the lower bound rather than a
+# bare 'pacman'.
+depends=(
+  'pacman>=7.0'
+  'pacman-contrib'   # checkupdates, paccache, pacdiff
+  'paru'             # every write action is delegated to it
+  'sudo'             # cache cleaning and rollbacks are run through it
+  'gcc-libs'
+  'glibc'
+)
+makedepends=('cargo')
+
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+# Regenerate with `updpkgsums` on every version bump.
+sha256sums=('90580b40ae0e9705d19b92a995c91a7affe7f52ede2e51aa6991e323c34c190e')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  # makepkg puts `-C debuginfo=2` in RUSTFLAGS, but cargo's release profile
+  # appends its own `-C debuginfo=0` after it and wins — the -debug package came
+  # out an empty shell. Overriding the profile is what actually takes effect.
+  # It is set here rather than in Cargo.toml so that a plain local
+  # `cargo build --release` stays a 1.8 MiB binary instead of a 17 MiB one.
+  export CARGO_PROFILE_RELEASE_DEBUG=true
+  cargo build --frozen --release --all-features
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  export RUSTUP_TOOLCHAIN=stable
+  # The tests read no system state: they replay captured pacman output and scan
+  # the source tree for untranslated strings. Safe in a clean chroot.
+  cargo test --frozen --all-features
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/$pkgname"
+  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" LICENSE
+  install -Dm0644 -t "$pkgdir/usr/share/doc/$pkgname/" README.md README.fr.md
+}

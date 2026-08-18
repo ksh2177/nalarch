@@ -1,0 +1,68 @@
+# Maintainer: ksh2177 <ksh2177@pm.me>
+
+pkgname=nalarch-git
+_pkgname=nalarch
+pkgver=r0.0000000
+pkgrel=1
+pkgdesc='TUI package manager for Arch — reads through libalpm, delegates execution to paru (git)'
+arch=('x86_64' 'aarch64')
+url='https://github.com/ksh2177/nalarch'
+license=('MIT')
+
+depends=(
+  'pacman>=7.0'
+  'pacman-contrib'
+  'paru'
+  'sudo'
+  'gcc-libs'
+  'glibc'
+)
+makedepends=('cargo' 'git')
+provides=("$_pkgname=$pkgver")
+conflicts=("$_pkgname")
+
+source=("$_pkgname::git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$_pkgname"
+  # No tag yet: fall back on the commit count, which still orders correctly.
+  # Once v0.1.0 exists, `git describe` takes over on its own.
+  if git describe --long --tags >/dev/null 2>&1; then
+    git describe --long --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+  else
+    printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  fi
+}
+
+prepare() {
+  cd "$_pkgname"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$_pkgname"
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  # makepkg puts `-C debuginfo=2` in RUSTFLAGS, but cargo's release profile
+  # appends its own `-C debuginfo=0` after it and wins — the -debug package came
+  # out an empty shell. Overriding the profile is what actually takes effect.
+  # It is set here rather than in Cargo.toml so that a plain local
+  # `cargo build --release` stays a 1.8 MiB binary instead of a 17 MiB one.
+  export CARGO_PROFILE_RELEASE_DEBUG=true
+  cargo build --frozen --release --all-features
+}
+
+check() {
+  cd "$_pkgname"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo test --frozen --all-features
+}
+
+package() {
+  cd "$_pkgname"
+  install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/$_pkgname"
+  install -Dm0644 -t "$pkgdir/usr/share/licenses/$_pkgname/" LICENSE
+  install -Dm0644 -t "$pkgdir/usr/share/doc/$_pkgname/" README.md README.fr.md
+}

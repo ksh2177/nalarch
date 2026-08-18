@@ -1,0 +1,22 @@
+pkgbase = nalarch-git
+	pkgdesc = TUI package manager for Arch — reads through libalpm, delegates execution to paru (git)
+	pkgver = r0.0000000
+	pkgrel = 1
+	url = https://github.com/ksh2177/nalarch
+	arch = x86_64
+	arch = aarch64
+	license = MIT
+	makedepends = cargo
+	makedepends = git
+	depends = pacman>=7.0
+	depends = pacman-contrib
+	depends = paru
+	depends = sudo
+	depends = gcc-libs
+	depends = glibc
+	provides = nalarch=r0.0000000
+	conflicts = nalarch
+	source = nalarch::git+https://github.com/ksh2177/nalarch.git
+	sha256sums = SKIP
+
+pkgname = nalarch-git

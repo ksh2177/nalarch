@@ -1,0 +1,13 @@
+# Rust
+/target
+**/*.rs.bk
+*.pdb
+
+# Secrets — jamais de .env commité (secrets → projet Infisical dédié)
+.env
+.env.*
+!.env.example
+
+# Divers
+*.log
+.DS_Store
