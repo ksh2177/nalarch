@@ -11,9 +11,11 @@ mod demo;
 mod exec;
 mod history;
 mod i18n;
+mod icons;
 mod journal;
 mod plan;
 mod risks;
+mod search;
 mod theme;
 mod ui;
 
@@ -29,6 +31,7 @@ fn main() -> Result<()> {
     // it through a OnceLock, and a first call made before this one would pin
     // English for the whole run.
     i18n::init(&args);
+    icons::init(&args);
 
     if args.iter().any(|a| a == "--help" || a == "-h") {
         print_help();
@@ -84,6 +87,7 @@ fn print_help() {
     println!();
     println!("  nalarch                {}", i18n::t("start the interface"));
     println!("  nalarch --lang en|fr   {}", i18n::t("force the interface language"));
+    println!("  nalarch --icons        {}", i18n::t("draw Nerd Font glyphs (needs one)"));
     println!("  nalarch --demo         {}", i18n::t("replay a session without touching the system"));
     println!("  nalarch --dump N W H   {}", i18n::t("render one screen as plain text (no TTY)"));
     println!("  nalarch --help         {}", i18n::t("this message"));
@@ -484,6 +488,32 @@ fn dump(args: &[String]) -> Result<()> {
                 s.scroll_by(*n as isize);
             }
         }
+        // 20: the search tab, with the query passed after the dimensions. The
+        // search hits the network, so it is given time to land.
+        20 | 21 => {
+            app.tab = 4;
+            app.filter = std::env::args()
+                .skip_while(|a| a != "--query")
+                .nth(1)
+                .unwrap_or_else(|| "yazi".into());
+            app.run_search();
+            for _ in 0..200 {
+                std::thread::sleep(Duration::from_millis(50));
+                if app.search.pump() {
+                    break;
+                }
+            }
+            // A fourth number picks the result, to inspect an AUR package's
+            // detail panel rather than whichever came first.
+            app.go_to(nums.get(3).copied().unwrap_or(0));
+            // 21: the install plan for that result, to see what the requested
+            // package drags along behind it.
+            if tab == 21 {
+                app.toggle_check();
+                app.message = None;
+                app.apply();
+            }
+        }
         16 => {
             app.tab = 0;
             app.go_to(0);
@@ -594,6 +624,12 @@ fn run_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<()
                 Event::Resize(_, _) => redraw = true,
                 _ => {}
             }
+        }
+
+        // The search answer, arriving in the background.
+        if app.search.pump() {
+            app.go_to(app.list.selected().unwrap_or(0));
+            redraw = true;
         }
 
         // The changelog request's answer, arriving in the background.
@@ -804,7 +840,15 @@ fn table_key(
                 app.search_mode = false;
                 app.go_to(0);
             }
-            KeyCode::Enter => app.search_mode = false,
+            KeyCode::Enter => {
+                app.search_mode = false;
+                // On the search tab the query is not a filter over rows already
+                // in hand: validating it goes and asks the repositories and the
+                // AUR.
+                if app.current_tab() == app::Tab::Search {
+                    app.run_search();
+                }
+            }
             KeyCode::Backspace => {
                 app.filter.pop();
                 app.go_to(0);

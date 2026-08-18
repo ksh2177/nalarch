@@ -5,7 +5,7 @@ on the Debian side: see what is about to change, move around in it, decide, then
 
 *[Version française](README.fr.md).*
 
-![nalarch in use: the plan screen states what a transaction will do and what deserves a look, the run screen retells each download, verification, upgrade and hook as it happens, then the installed, orphan, history and cache tabs are toured.](docs/demo.gif)
+![nalarch in use: the plan screen states what a transaction will do and what deserves a look, the run screen retells each download, verification, upgrade and hook as it happens, then the installed, orphan, history, search and cache tabs are toured — the search one querying the repositories and the AUR at once.](docs/demo.gif)
 
 ## Principle
 
@@ -39,6 +39,7 @@ detail — why the locale is pinned, how the changelog is found, what the transc
 | **Installed** | explicit packages nothing depends on (≈ `pacman -Qett`) | `paru -Rns` |
 | **Orphans** | pulled in as a dependency, needed by nothing now (= `pacman -Qdt`) | `paru -Rns` |
 | **History** | every past transaction, and what a rollback would restore | `pacman -U` from the cache |
+| **Search** | repositories and AUR in one list, with votes and maintainer | `paru -S` |
 | **Cache** | volume, old versions, uninstalled packages | `paccache -rk<N>` / `U` → `-ruk0` |
 
 Nothing runs without going through an approval screen first. It states what the transaction
@@ -73,6 +74,26 @@ Three things a package rollback does not do, and that the plan screen states:
   recoverable, the system ends up with a mix of both versions, never shipped nor tested that
   way. That is flagged as a serious risk, at the top of the list.
 
+## Searching, and installing
+
+`/` types a query, `Enter` runs it. The repositories are searched through libalpm, with no
+subprocess to parse; the AUR through its RPC endpoint, on a background thread so a slow
+lookup never freezes the interface.
+
+Results are ordered by what was probably meant: the exact name first, then a prefix match,
+then a substring. Within the same relevance the reviewed source wins, then the AUR's own
+popularity. Ranking every repository package above every AUR one sounds prudent, but
+searching `yazi` then buries the AUR package of that very name under an unrelated `libyazi`.
+
+An AUR result carries what the AUR itself uses to judge one: votes, popularity, whether a
+user flagged it out of date, and whether anyone still maintains it — **no maintainer means
+orphaned**, which is the single most useful thing to know before building a PKGBUILD under
+your own account.
+
+`space` checks a result, `u` opens its plan. That plan separates what you **asked for** from
+what comes along with it: asking for one package routinely brings a dozen, and that is
+usually shown as a wall of names right before a confirmation prompt.
+
 ## The protection list
 
 `~/.config/nalarch/keep.list`
@@ -95,7 +116,7 @@ run with `qt6-wayland` and `qt6-avif-image-plugin` already protected.
 | `space` | check / uncheck |
 | `a` / `n` | check all / uncheck all |
 | `p` | protect / unprotect |
-| `/` | filter (name and description; History: by package), `Esc` cancels |
+| `/` | filter (name and description; History: by package; Search: the query), `Esc` cancels |
 | `c` | see what the selected update changes |
 | `u` | open the plan for the tab's action (History: the rollback) |
 | `U` | (Cache tab) purge uninstalled packages |
@@ -108,6 +129,20 @@ During a run, keystrokes go to paru, `Ctrl-C` included — its questions get ans
 sudo password typed without leaving the interface. The movement keys are the exception: they
 scroll the panel instead, before and after the run, and `j` switches between the transcript
 and paru's raw output.
+
+## Icons
+
+Off by default. `--icons` turns them on, or `icons = true` in `~/.config/nalarch/config`;
+`NALARCH_ICONS=1` works too, and `--no-icons` wins over everything.
+
+They are opt-in for a reason that matters more here than in most tools: the moment nalarch is
+most needed is a bare TTY after a botched upgrade, where no Nerd Font is loaded and every
+glyph would come out as an empty box. They also assume a **single-width (Mono)** Nerd Font
+variant — the double-width ones render across two cells while the layout counts one, which
+shifts every column that follows.
+
+Nothing they show carries meaning on its own: each glyph sits next to the word it decorates,
+on the tabs and in the repository column. Turning them off loses decoration, not information.
 
 ## Language
 

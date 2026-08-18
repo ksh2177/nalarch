@@ -5,7 +5,7 @@ côté Debian : voir ce qui va changer, se déplacer dedans, décider, puis appl
 
 *[English version](README.md) — c'est la version de référence ; celle-ci peut avoir un temps de retard.*
 
-![nalarch à l'usage : l'écran de plan annonce ce que la transaction va faire et ce qui mérite un regard, l'écran d'exécution raconte chaque téléchargement, vérification, mise à jour et crochet au fil de l'opération, puis les onglets installés, orphelins, historique et cache sont parcourus.](docs/demo.gif)
+![nalarch à l'usage : l'écran de plan annonce ce que la transaction va faire et ce qui mérite un regard, l'écran d'exécution raconte chaque téléchargement, vérification, mise à jour et crochet au fil de l'opération, puis les onglets installés, orphelins, historique, recherche et cache sont parcourus — celui de recherche interrogeant les dépôts et l'AUR d'un coup.](docs/demo.gif)
 
 ## Principe
 
@@ -41,6 +41,7 @@ transcription est faite.
 | **Installés** | paquets explicites dont rien ne dépend (≈ `pacman -Qett`) | `paru -Rns` |
 | **Orphelins** | tirés comme dépendance, plus réclamés par rien (= `pacman -Qdt`) | `paru -Rns` |
 | **Historique** | toutes les transactions passées, et ce qu'un retour arrière rétablirait | `pacman -U` depuis le cache |
+| **Recherche** | dépôts et AUR dans une seule liste, avec votes et mainteneur | `paru -S` |
 | **Cache** | volume, anciennes versions, paquets désinstallés | `paccache -rk<N>` / `U` → `-ruk0` |
 
 Rien ne se lance sans passer par un écran de validation. Il annonce ce que la transaction va
@@ -77,6 +78,25 @@ Trois choses qu'un retour de paquets ne fait pas, et que l'écran de plan énonc
   récupérable, le système se retrouve avec un mélange des deux versions, jamais livré ni
   testé ainsi. C'est signalé comme risque sérieux, en tête de liste.
 
+## Chercher, et installer
+
+`/` saisit une requête, `Entrée` la lance. Les dépôts sont interrogés via libalpm, sans
+sous-processus à analyser ; l'AUR via son point d'API, dans un fil séparé pour qu'une
+résolution lente ne fige jamais l'interface.
+
+Les résultats sont classés par ce qu'on voulait probablement : le nom exact d'abord, puis un
+début de nom, puis une sous-chaîne. À pertinence égale, la source relue passe devant, puis la
+popularité que l'AUR mesure lui-même. Classer tous les dépôts avant tout l'AUR paraît prudent,
+mais chercher `yazi` enterre alors le paquet AUR de ce nom sous un `libyazi` sans rapport.
+
+Un résultat AUR porte ce sur quoi l'AUR lui-même le juge : votes, popularité, signalement de
+péremption par un utilisateur, et mainteneur — **aucun mainteneur signifie orphelin**, ce qui
+est la chose la plus utile à savoir avant de compiler un PKGBUILD sous son propre compte.
+
+`espace` coche un résultat, `u` ouvre son plan. Ce plan sépare ce que tu as **demandé** de ce
+qui arrive avec : demander un paquet en amène couramment une dizaine, et c'est en général
+présenté comme un mur de noms juste avant une demande de confirmation.
+
 ## La liste de protection
 
 `~/.config/nalarch/keep.list`
@@ -100,7 +120,7 @@ sélectionné. Le fichier est créé au premier lancement avec `qt6-wayland` et
 | `espace` | cocher / décocher |
 | `a` / `n` | tout cocher / tout décocher |
 | `p` | protéger / déprotéger |
-| `/` | filtrer (nom et description ; Historique : par paquet), `Échap` annule |
+| `/` | filtrer (nom et description ; Historique : par paquet ; Recherche : la requête), `Échap` annule |
 | `c` | voir ce que change la mise à jour sélectionnée |
 | `u` | ouvrir le plan de l'action de l'onglet (Historique : le retour arrière) |
 | `U` | (onglet Cache) purger les paquets désinstallés |
@@ -113,6 +133,22 @@ Pendant l'exécution, les frappes vont à paru, `Ctrl-C` compris — on répond 
 on saisit le mot de passe sudo sans quitter l'interface. Les touches de déplacement font
 exception : elles font défiler le panneau, avant comme après l'exécution, et `j` bascule
 entre la transcription et la sortie brute de paru.
+
+## Icônes
+
+Désactivées par défaut. `--icons` les allume, ou `icons = true` dans
+`~/.config/nalarch/config` ; `NALARCH_ICONS=1` marche aussi, et `--no-icons` l'emporte sur
+tout.
+
+Le choix d'un réglage explicite compte plus ici que dans la plupart des outils : le moment où
+nalarch sert le plus est un TTY nu après une mise à jour ratée, où aucune Nerd Font n'est
+chargée et où chaque glyphe sortirait en carré vide. Elles supposent aussi une variante
+**mono-chasse (Mono)** — les variantes double largeur dessinent ces glyphes sur deux cellules
+alors que la mise en page en compte une, ce qui décale toutes les colonnes suivantes.
+
+Rien de ce qu'elles montrent ne porte de sens à soi seul : chaque glyphe accompagne le mot
+qu'il décore, sur les onglets et dans la colonne du dépôt. Les éteindre fait perdre de la
+décoration, pas de l'information.
 
 ## Langue
 

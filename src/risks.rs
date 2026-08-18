@@ -179,7 +179,7 @@ fn analyze_upgrade(plan: &Plan, state: &State, excluded: &[String], r: &mut Vec<
             level: Level::Info,
             title: tf("{0} new package(s) pulled in as dependencies", &[&new_count.to_string()]),
             detail: tf(
-                "You did not ask for them; they arrive because an upgraded package needs them. {0}{1}",
+                "You did not ask for them; they arrive because something you asked for needs them. {0}{1}",
                 &[
                     &names.join(", "),
                     if new_count > names.len() { "…" } else { "" },

@@ -40,15 +40,17 @@ pub enum Tab {
     Installed,
     Orphans,
     History,
+    Search,
     Cache,
 }
 
 impl Tab {
-    pub const ALL: [Tab; 5] = [
+    pub const ALL: [Tab; 6] = [
         Tab::Updates,
         Tab::Installed,
         Tab::Orphans,
         Tab::History,
+        Tab::Search,
         Tab::Cache,
     ];
 
@@ -58,6 +60,7 @@ impl Tab {
             Tab::Installed => "tab|Installed",
             Tab::Orphans => "Orphans",
             Tab::History => "History",
+            Tab::Search => "Search",
             Tab::Cache => "Cache",
         })
     }
@@ -79,6 +82,8 @@ pub struct App {
     /// Versions still present in the local caches: that is what makes a
     /// rollback possible or not.
     pub caches: crate::history::Caches,
+    /// Repository and AUR search, with its query and its background state.
+    pub search: crate::search::Search,
     /// Scroll inside a transaction's detail: a full upgrade rarely fits in one
     /// panel.
     pub detail_scroll: u16,
@@ -117,6 +122,7 @@ impl App {
             keep,
             history: crate::history::load(),
             caches: crate::history::Caches::index(),
+            search: crate::search::Search::default(),
             detail_scroll: 0,
             pty_size: std::cell::Cell::new((0, 0)),
             tab: 0,
@@ -152,7 +158,7 @@ impl App {
                 .iter()
                 .filter(|p| p.is_orphan())
                 .collect(),
-            Tab::History | Tab::Cache => Vec::new(),
+            Tab::History | Tab::Search | Tab::Cache => Vec::new(),
         };
         if self.filter.is_empty() {
             return source;
@@ -182,6 +188,7 @@ impl App {
     pub fn row_count(&self) -> usize {
         match self.current_tab() {
             Tab::History => self.filtered_history().len(),
+            Tab::Search => self.search.hits().len(),
             Tab::Cache => 0,
             _ => self.rows().len(),
         }
@@ -196,6 +203,43 @@ impl App {
             .iter()
             .filter(|t| t.matches_text(&self.filter))
             .collect()
+    }
+
+    /// The result the cursor sits on, in the search tab.
+    pub fn selected_hit(&self) -> Option<&crate::search::Hit> {
+        self.list.selected().and_then(|i| self.search.hits().get(i))
+    }
+
+    /// Names checked in the search tab, split by where they come from: pacman
+    /// resolves the repository ones, paru is the only one that knows the rest.
+    pub fn checked_hits(&self) -> (Vec<String>, Vec<String>) {
+        let mut repos = Vec::new();
+        let mut aur = Vec::new();
+        for h in self.search.hits() {
+            if !self.checked.contains(&h.name) {
+                continue;
+            }
+            if h.is_aur() {
+                aur.push(h.name.clone());
+            } else {
+                repos.push(h.name.clone());
+            }
+        }
+        (repos, aur)
+    }
+
+    /// Runs the search for what is currently typed.
+    pub fn run_search(&mut self) {
+        let installed: Vec<(String, String)> = self
+            .state
+            .installed
+            .iter()
+            .map(|p| (p.name.clone(), p.version.clone()))
+            .collect();
+        let query = self.filter.clone();
+        self.search.start(&query, installed);
+        self.checked.clear();
+        self.go_to(0);
     }
 
     pub fn selected_transaction(&self) -> Option<&crate::history::Transaction> {
@@ -242,8 +286,18 @@ impl App {
     // ---- selection ----
 
     pub fn toggle_check(&mut self) {
-        let Some(pkg) = self.selected() else { return };
-        let name = pkg.name.clone();
+        // The search tab lists results, not installed packages, so the cursor
+        // resolves through a different collection. Everything after is the same.
+        let name = match self.current_tab() {
+            Tab::Search => match self.selected_hit() {
+                Some(h) => h.name.clone(),
+                None => return,
+            },
+            _ => match self.selected() {
+                Some(p) => p.name.clone(),
+                None => return,
+            },
+        };
         // Checking a protected package is refused in the removal views: that is
         // the entire point of keep.list.
         if self.is_removal_view() && self.is_protected(&name) {
@@ -260,6 +314,15 @@ impl App {
     }
 
     pub fn check_all(&mut self) {
+        // Checking every search result at once would be a way to install a
+        // hundred packages by accident; the search tab is left out on purpose.
+        if self.current_tab() == Tab::Search {
+            self.message = Some((
+                crate::i18n::t("Check search results one by one — there is no “all”.").into(),
+                Severity::Info,
+            ));
+            return;
+        }
         let names: Vec<String> = self
             .rows()
             .iter()
@@ -317,7 +380,7 @@ impl App {
                     &[&names.len().to_string(), &size(-p.net)],
                 ))
             }
-            Tab::History | Tab::Cache => None,
+            Tab::History | Tab::Search | Tab::Cache => None,
         }
     }
 
@@ -471,6 +534,12 @@ impl App {
                 };
                 intent
             }
+            Tab::Search => {
+                let Some(intent) = self.install_intent() else {
+                    return;
+                };
+                intent
+            }
             Tab::Cache => {
                 // The retention configured for paccache.timer is reused, so the
                 // cache does not oscillate between two policies.
@@ -551,6 +620,50 @@ impl App {
             removal: false,
             notes,
             risks,
+        })
+    }
+
+    /// Builds the plan for installing what is checked in the search tab.
+    fn install_intent(&mut self) -> Option<Intent> {
+        let (repos, aur) = self.checked_hits();
+        if repos.is_empty() && aur.is_empty() {
+            self.message = Some((
+                crate::i18n::t("No package checked — space to check one").into(),
+                Severity::Warning,
+            ));
+            return None;
+        }
+        let plan = plan::install_plan(&self.state, &repos, &aur);
+        let mut targets = repos.clone();
+        targets.extend(aur.iter().cloned());
+
+        let mut cmd = vec!["paru".to_string(), "-S".to_string()];
+        // As with an upgrade, paru keeps its questions when the AUR is involved:
+        // reading the PKGBUILD is the one chance to see what will run.
+        if aur.is_empty() {
+            cmd.push("--noconfirm".to_string());
+        }
+        cmd.extend(targets.iter().cloned());
+
+        let pulled = plan.count(plan::Kind::New);
+        let mut notes = vec![crate::i18n::tf(
+            "{0} asked for, {1} pulled in as dependencies.",
+            &[&targets.len().to_string(), &pulled.to_string()],
+        )];
+        if !aur.is_empty() {
+            notes.push(
+                crate::i18n::t("AUR packages are built from source: their size and duration cannot be known beforehand.")
+                    .into(),
+            );
+        }
+        Some(Intent {
+            display_command: None,
+            title: crate::i18n::tf("Install · {0} package(s)", &[&plan.rows.len().to_string()]),
+            cmd,
+            risks: crate::risks::analyze(&plan, &self.state, &[], false),
+            plan,
+            removal: false,
+            notes,
         })
     }
 

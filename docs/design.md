@@ -154,5 +154,7 @@ Useful to check the layout, produce a capture, or debug from a script.
 | `8` | run in progress, AUR build (not measurable) |
 | `9` | run finished in failure |
 | `17` | history, on the busiest transaction (4th number = index) |
+| `20` | the search tab (`--query <term>`, 4th number = which result) |
+| `21` | the install plan for that result, dependencies included |
 | `18` | the rollback plan built from that transaction |
 | `19` | paru's raw output at the end of a run (4th number = lines scrolled back) |

@@ -11,7 +11,11 @@ use crate::data::{self, State, Origin};
 pub enum Kind {
     /// Already installed, moving to a newer version.
     Upgrade,
-    /// Not installed: arrives as a dependency of something being upgraded.
+    /// Asked for by name. Kept apart from `New` so that an install does not
+    /// present the one package wanted and the twelve it drags in as the same
+    /// thing — that distinction is the whole point of showing the plan.
+    Requested,
+    /// Not installed: arrives as a dependency of something else.
     New,
     /// Back to an earlier version.
     Downgrade,
@@ -25,6 +29,7 @@ impl Kind {
     pub fn symbol(self) -> &'static str {
         match self {
             Kind::Upgrade => "↑",
+            Kind::Requested => "◆",
             Kind::New => "+",
             Kind::Downgrade => "↓",
             Kind::Removal => "−",
@@ -35,6 +40,7 @@ impl Kind {
     pub fn label(self) -> &'static str {
         crate::i18n::t(match self {
             Kind::Upgrade => "Updates",
+            Kind::Requested => "Requested",
             Kind::New => "New packages",
             Kind::Downgrade => "Downgrades",
             Kind::Removal => "Removals",
@@ -43,8 +49,9 @@ impl Kind {
     }
 
     /// Every kind, in the order they read.
-    pub const ALL: [Kind; 5] = [
+    pub const ALL: [Kind; 6] = [
         Kind::Upgrade,
+        Kind::Requested,
         Kind::New,
         Kind::Downgrade,
         Kind::Removal,
@@ -237,6 +244,63 @@ pub fn removal_plan(state: &State, names: &[String]) -> Plan {
         ..empty()
     });
     p.total_installed = 0;
+    p
+}
+
+/// Plan of a fresh install, as pacman would resolve it.
+///
+/// The dependencies matter more here than anywhere else: asking for one package
+/// routinely brings a dozen, and that is precisely what a package manager tends
+/// to show only as a wall of names right before the confirmation prompt.
+///
+/// AUR targets are added afterwards, without sizes: pacman knows nothing about
+/// them, and nothing is measurable before the build.
+pub fn install_plan(state: &State, targets: &[String], aur: &[String]) -> Plan {
+    let mut rows = Vec::new();
+    let mut total_installed = 0;
+
+    for r in data::install_transaction(targets) {
+        let sync = state.sync.get(&r.name);
+        let (dl, size) = match sync.filter(|(v, _, _)| *v == r.version) {
+            Some((_, d, i)) => (Some(*d), Some(*i)),
+            None => (None, None),
+        };
+        if let Some(i) = size {
+            total_installed += i;
+        }
+        // A target the user named is not a surprise; anything else came along
+        // with it, and that is what the New column is for.
+        let asked_for = targets.contains(&r.name);
+        rows.push(PlanRow {
+            name: r.name,
+            repo: r.repo,
+            from_version: String::new(),
+            to_version: r.version,
+            dl,
+            net: size,
+            aur: false,
+            kind: if asked_for { Kind::Requested } else { Kind::New },
+            is_downgrade: false,
+        });
+    }
+
+    for name in aur {
+        rows.push(PlanRow {
+            name: name.clone(),
+            repo: "aur".to_string(),
+            from_version: String::new(),
+            to_version: String::new(),
+            dl: None,
+            net: None,
+            aur: true,
+            kind: Kind::Requested,
+            is_downgrade: false,
+        });
+    }
+
+    rows.sort_by(|a, b| (a.aur, a.kind != Kind::Requested, &a.name).cmp(&(b.aur, b.kind != Kind::Requested, &b.name)));
+    let mut p = with_totals(Plan { rows, ..empty() });
+    p.total_installed = total_installed;
     p
 }
 

@@ -152,6 +152,41 @@ pub fn resolved_transaction(excluded: &[String]) -> Vec<Resolved> {
         .collect()
 }
 
+/// The transaction pacman would carry out to install these packages.
+///
+/// Same mechanism as `resolved_transaction`, with `-Sp` instead of `-Sup`: the
+/// starting point is a list of names rather than the whole system. It resolves
+/// the dependencies too, which is the part worth seeing before installing —
+/// asking for one package routinely brings a dozen.
+///
+/// Names pacman does not know (AUR) simply produce no line: paru handles those,
+/// and nothing here has to guess.
+pub fn install_transaction(names: &[String]) -> Vec<Resolved> {
+    if names.is_empty() {
+        return Vec::new();
+    }
+    let mut args: Vec<String> = vec!["-Sp".into(), "--print-format".into(), "%n|%v|%r".into()];
+    if let Some(db) = checkupdates_db() {
+        args.push("--dbpath".into());
+        args.push(db.to_string_lossy().into_owned());
+    }
+    args.extend(names.iter().cloned());
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+
+    harvest(spawn("pacman", &refs))
+        .lines()
+        .filter_map(|l| {
+            let mut it = l.trim().split('|');
+            Some(Resolved {
+                name: it.next()?.to_string(),
+                version: it.next()?.to_string(),
+                repo: it.next().unwrap_or("").to_string(),
+            })
+        })
+        .filter(|r| !r.name.is_empty())
+        .collect()
+}
+
 /// Packages `-Rns` really removes, cascade included.
 ///
 /// Removing one package often takes others along: `-s` removes dependencies
@@ -203,7 +238,7 @@ fn ignored_packages() -> HashSet<String> {
 }
 
 /// Reads the repository names declared in pacman.conf (any section but [options]).
-fn configured_repos() -> Vec<String> {
+pub fn configured_repos() -> Vec<String> {
     let Ok(contents) = std::fs::read_to_string("/etc/pacman.conf") else {
         return Vec::new();
     };

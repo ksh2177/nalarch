@@ -42,6 +42,12 @@ fn table_screen(f: &mut Frame, app: &mut App, zone: Rect) {
 
     if app.current_tab() == Tab::Cache {
         cache_panel(f, app, middle);
+    } else if app.current_tab() == Tab::Search {
+        let [left, right] =
+            Layout::horizontal([Constraint::Percentage(62), Constraint::Percentage(38)])
+                .areas(middle);
+        search_list(f, app, left);
+        hit_detail(f, app, right);
     } else if app.current_tab() == Tab::History {
         let [left, right] =
             Layout::horizontal([Constraint::Percentage(48), Constraint::Percentage(52)])
@@ -71,10 +77,11 @@ fn header(f: &mut Frame, app: &App, zone: Rect) {
                     app.state.installed.iter().filter(|p| p.is_orphan()).count()
                 }
                 Tab::History => app.history.len(),
+                Tab::Search => app.search.hits().len(),
                 Tab::Cache => app.state.cache_files,
             };
             Line::from(vec![
-                Span::raw(o.title()),
+                Span::raw(format!("{}{}", crate::icons::tab(*o), o.title())),
                 Span::styled(
                     format!(" {count}"),
                     Style::default().fg(theme::DIM),
@@ -135,8 +142,10 @@ fn package_row(app: &App, p: &Pkg, width: u16) -> ListItem<'static> {
     // Name width = whatever is left once the fixed columns are subtracted.
     // 52 = 2 borders + 1 selection symbol + 4 checkbox + 15 version + 2 arrow
     //      + 15 target + 12 repository + 1 space. The repository gets 12 so that
-    //      third-party repositories fit (chaotic-aur, endeavouros…).
-    let name_width = ((width as usize).saturating_sub(52)).clamp(12, 40);
+    //      third-party repositories fit (chaotic-aur, endeavouros…), plus the
+    //      icon column when glyphs are on.
+    let name_width = ((width as usize).saturating_sub(52 + crate::icons::repo_width()))
+        .clamp(12, 40);
     let name = if p.name.chars().count() > name_width {
         format!("{} ", truncate(&p.name, name_width))
     } else {
@@ -175,7 +184,7 @@ fn package_row(app: &App, p: &Pkg, width: u16) -> ListItem<'static> {
     }
 
     spans.push(Span::styled(
-        format!("{:<12}", truncate(&p.repo, 12)),
+        format!("{}{:<12}", crate::icons::repo(&p.repo), truncate(&p.repo, 12)),
         Style::default().fg(theme::repo_color(&p.repo)),
     ));
 
@@ -263,7 +272,11 @@ fn details_panel(f: &mut Frame, app: &App, zone: Rect) {
     )));
     l.push(Line::raw(""));
 
-    l.push(field(t("Repository"), &p.repo, theme::repo_color(&p.repo)));
+    l.push(field(
+        t("Repository"),
+        &format!("{}{}", crate::icons::repo(&p.repo), p.repo),
+        theme::repo_color(&p.repo),
+    ));
     l.push(field(t("Version"), &p.version, theme::FG));
     if let Some(c) = &p.target_version {
         l.push(field(t("Target"), c, theme::GREEN));
@@ -430,6 +443,170 @@ fn cache_panel(f: &mut Frame, app: &App, zone: Rect) {
         .block(framed(&format!(" {} ", t("Package cache"))))
         .wrap(Wrap { trim: true });
     f.render_widget(p, zone);
+}
+
+/// Search results: what matched, where it comes from, and whether it is already
+/// here. The repository column carries the same colour code as everywhere else,
+/// which is what makes an AUR result recognisable at a glance.
+fn search_list(f: &mut Frame, app: &mut App, zone: Rect) {
+    use crate::search::State;
+    let title = if app.search.query.is_empty() {
+        format!(" {} ", t("Search"))
+    } else {
+        format!(" {} ", tf("Search · “{0}”", &[&app.search.query]))
+    };
+
+    let message = match &app.search.state {
+        State::Idle => Some(t("Press / to type a query, Enter to search the repositories and the AUR.").to_string()),
+        State::Running => Some(tf("Searching for “{0}”…", &[&app.search.query])),
+        State::Failed(e) => Some(e.clone()),
+        State::Done(h) if h.is_empty() => Some(tf("Nothing matches “{0}”.", &[&app.search.query])),
+        State::Done(_) => None,
+    };
+    if let Some(msg) = message {
+        let colour = match &app.search.state {
+            State::Failed(_) => theme::YELLOW,
+            _ => theme::DIM,
+        };
+        let p = Paragraph::new(Line::from(Span::styled(msg, Style::default().fg(colour))))
+            .alignment(Alignment::Center)
+            .wrap(Wrap { trim: true })
+            .block(framed(&title));
+        f.render_widget(p, zone);
+        return;
+    }
+
+    let width = zone.width.saturating_sub(2) as usize;
+    // 4 checkbox + 13 version + 12 repository + 12 for the marker, the rest to
+    // the name. The version gets one column more than it uses so a truncated one
+    // never runs into the repository, and the marker column is reserved even
+    // when empty — otherwise "installed" is what falls off the right edge, and
+    // that is the one word worth reading on the row.
+    let repo_w = 12 + crate::icons::repo_width();
+    let name_w = width.saturating_sub(4 + 13 + repo_w + 12 + 2).clamp(12, 40);
+
+    let items: Vec<ListItem> = app
+        .search
+        .hits()
+        .iter()
+        .map(|h| {
+            let checked = app.checked.contains(&h.name);
+            let mut spans = vec![
+                Span::styled(
+                    if checked { "[x] " } else { "[ ] " },
+                    Style::default().fg(if checked { theme::GREEN } else { theme::DIM }),
+                ),
+                Span::styled(
+                    format!("{:<name_w$}", truncate(&h.name, name_w)),
+                    Style::default()
+                        .fg(if h.installed.is_some() { theme::GREEN } else { theme::FG })
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("{:<13}", truncate(&h.version, 12)),
+                    Style::default().fg(theme::DIM),
+                ),
+                Span::styled(
+                    format!(
+                        "{}{:<w$}",
+                        crate::icons::repo(&h.repo),
+                        truncate(&h.repo, 12),
+                        w = 12
+                    ),
+                    Style::default().fg(theme::repo_color(&h.repo)),
+                ),
+            ];
+            // Two facts worth more than the description on a crowded row: it is
+            // already here, or someone flagged it as stale. Out of date wins the
+            // column when both apply — it is the one that calls for a decision.
+            let (mark, colour) = if h.out_of_date {
+                (t("out of date"), theme::RED)
+            } else if h.installed.is_some() {
+                (t("installed"), theme::GREEN)
+            } else {
+                ("", theme::DIM)
+            };
+            spans.push(Span::styled(
+                format!(" {}", truncate(mark, 11)),
+                Style::default().fg(colour),
+            ));
+            ListItem::new(Line::from(spans))
+        })
+        .collect();
+
+    let list = List::new(items)
+        .block(framed(&title))
+        .highlight_style(theme::selected())
+        .highlight_symbol("▌");
+    f.render_stateful_widget(list, zone, &mut app.list);
+}
+
+/// Detail of the selected result. For an AUR package it carries what the AUR
+/// itself uses to judge one: how many people voted, how used it is, whether
+/// anyone still maintains it.
+fn hit_detail(f: &mut Frame, app: &App, zone: Rect) {
+    let Some(h) = app.selected_hit() else {
+        f.render_widget(framed(&format!(" {} ", t("Details"))), zone);
+        return;
+    };
+    const L: usize = 15;
+    let mut l = vec![
+        Line::from(Span::styled(
+            h.name.clone(),
+            Style::default().fg(theme::ACCENT).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            h.description.clone(),
+            Style::default().fg(theme::FG),
+        )),
+        Line::raw(""),
+        field(t("Repository"), &format!("{}{}", crate::icons::repo(&h.repo), h.repo), theme::repo_color(&h.repo)),
+        field(t("Version"), &h.version, theme::FG),
+    ];
+    if let Some(v) = &h.installed {
+        l.push(field(t("Installed"), v, theme::GREEN));
+    }
+    if let Some(u) = &h.url {
+        l.push(field(t("Upstream"), u, theme::CYAN));
+    }
+
+    if h.is_aur() {
+        l.push(Line::raw(""));
+        if let (Some(v), Some(p)) = (h.votes, h.popularity) {
+            l.push(field(
+                t("Votes"),
+                &tf("{0} · popularity {1}", &[&v.to_string(), &format!("{p:.2}")]),
+                theme::FG,
+            ));
+        }
+        // An orphaned AUR package is nobody's responsibility any more: that is
+        // the single most useful thing to know before building it.
+        match &h.maintainer {
+            Some(name) => l.push(field(t("Maintainer"), name, theme::FG)),
+            None => l.push(field(t("Maintainer"), t("none — orphaned"), theme::YELLOW)),
+        }
+        if h.out_of_date {
+            l.push(Line::raw(""));
+            l.push(Line::from(Span::styled(
+                t("⚑ Flagged out of date by a user."),
+                Style::default().fg(theme::RED).add_modifier(Modifier::BOLD),
+            )));
+        }
+        l.push(Line::raw(""));
+        for chunk in wrap_indent(
+            t("Built from a PKGBUILD, a script that runs under your account. paru will offer to show it before building."),
+            zone.width.saturating_sub(2) as usize,
+            "",
+        ) {
+            l.push(Line::from(Span::styled(chunk, Style::default().fg(theme::DIM))));
+        }
+    }
+
+    let _ = L;
+    let para = Paragraph::new(l)
+        .block(framed(&format!(" {} ", t("Details"))))
+        .wrap(Wrap { trim: true });
+    f.render_widget(para, zone);
 }
 
 /// The list of past transactions, most recent at the top.
@@ -910,10 +1087,15 @@ fn summary_block(
     // even at zero: knowing that *nothing* will be removed counts as much as
     // the rest.
     let rollback = p.count(Kind::Downgrade) > 0 && p.count(Kind::Upgrade) == 0;
+    // An install has nothing to say about updates, and an upgrade nothing about
+    // what was "requested": each shows the categories that structure it, so a
+    // zero on screen means something rather than filling a line.
     let always: &[Kind] = if rollback {
         &[Kind::Downgrade, Kind::Removal]
     } else if intent.removal {
         &[Kind::Removal, Kind::AutoRemoval]
+    } else if p.count(Kind::Requested) > 0 {
+        &[Kind::Requested, Kind::New]
     } else {
         &[Kind::Upgrade, Kind::New]
     };
@@ -1101,6 +1283,7 @@ fn risk_lines(intent: &crate::app::Intent, width: usize) -> Vec<Line<'static>> {
 fn kind_color(k: Kind) -> Color {
     match k {
         Kind::Upgrade => theme::GREEN,
+        Kind::Requested => theme::GREEN,
         Kind::New => theme::CYAN,
         Kind::Downgrade => theme::YELLOW,
         Kind::Removal => theme::RED,
@@ -1203,6 +1386,8 @@ fn summary_height(intent: &crate::app::Intent, frozen: usize) -> u16 {
         &[Kind::Downgrade, Kind::Removal]
     } else if intent.removal {
         &[Kind::Removal, Kind::AutoRemoval]
+    } else if p.count(Kind::Requested) > 0 {
+        &[Kind::Requested, Kind::New]
     } else {
         &[Kind::Upgrade, Kind::New]
     };
@@ -1999,12 +2184,22 @@ fn legend_line(f: &mut Frame, app: &App, zone: Rect) {
         Tab::Updates => "u update",
         Tab::Installed | Tab::Orphans => "u remove",
         Tab::History => "u roll back",
+        Tab::Search => "u install",
         Tab::Cache => "u clean",
     });
 
     // The history is not checkable: a transaction is undone whole or not at
     // all. Showing "space check" there would be an empty promise.
-    let keys: &[(&str, &str)] = if app.current_tab() == Tab::History {
+    let keys: &[(&str, &str)] = if app.current_tab() == Tab::Search {
+        &[
+            ("↑↓", "navigate"),
+            ("←→", "tab"),
+            ("/", "query"),
+            ("space", "check"),
+            ("n", "none"),
+            ("r", "reload"),
+        ]
+    } else if app.current_tab() == Tab::History {
         &[
             ("↑↓", "navigate"),
             ("←→", "tab"),

@@ -3,7 +3,10 @@
 # It opens on `--demo`, whose script only replays paru-shaped output: pressing
 # Enter on the plan screen in a recording must never touch a real system. Once
 # the run is over, Enter returns to the table and the tabs get toured — reading
-# the machine's state is harmless.
+# the machine's state is harmless, and so is searching.
+#
+# Icons are on here because a recording is where they are worth showing. They
+# are off by default, and the README says why.
 #
 # The theme is spelled out rather than left to the terminal so the GIF comes out
 # identical wherever it is generated. nalarch itself takes its colours from the
@@ -25,7 +28,7 @@ Set Theme { "background": "#1f1f22", "foreground": "#e4e1e5", "cursor": "#bdc4f0
 
 # ── The plan: what the transaction will really do ──────────────────────────
 Hide
-Type "nalarch --lang en --demo"
+Type "nalarch --lang en --icons --demo"
 Enter
 Sleep 2s
 Show
@@ -49,19 +52,27 @@ Sleep 1800ms
 
 # Installed: explicit packages nothing depends on.
 Tab
-Sleep 1800ms
+Sleep 1400ms
 
 # Orphans: the two yellow dots are the protection list at work.
 Tab
-Sleep 2500ms
+Sleep 2200ms
 
 # History: every transaction pacman ever ran, and what a rollback could undo.
 Tab
-Sleep 2500ms
+Sleep 2200ms
+
+# Search: repositories and AUR in one list.
+Tab
+Sleep 1200ms
+Type "/"
+Type "yazi"
+Enter
+Sleep 4s
 
 # Cache: what makes a rollback possible in the first place.
 Tab
-Sleep 2500ms
+Sleep 1800ms
 
 Hide
 Type "q"
