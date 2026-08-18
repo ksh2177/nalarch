@@ -684,6 +684,18 @@ impl App {
         let targets = self.checked_targets();
 
         let mut cmd = vec!["paru".to_string(), "-S".to_string()];
+        // The targets come from a list of real package names, so paru has
+        // nothing to resolve about them. Left on, its provider search asks which
+        // of `plakar` and `plakar-git` was meant — after the choice was made by
+        // checking a row. Qualifying the target as `aur/plakar` does not settle
+        // it: the prefix scopes the repository, not the search for providers.
+        //
+        // The cost is stated rather than hidden: `--provides` also covers
+        // dependencies that no package satisfies by name, and one of those now
+        // fails to resolve instead of offering a menu. That failure is loud and
+        // lands in the error list; the question was silent and happened on every
+        // ambiguous install.
+        cmd.push("--noprovides".to_string());
         // As with an upgrade, paru keeps its questions when the AUR is involved:
         // reading the PKGBUILD is the one chance to see what will run.
         if aur.is_empty() {

@@ -417,21 +417,45 @@ impl Session {
     /// A question already answered stays displayed higher up but no longer holds
     /// the cursor, so it raises no false positive.
     /// The question paru is waiting on, if any.
+    ///
+    /// Held from the detection, but its text is read live. Holding the text too
+    /// froze the question at the instant it appeared, so the answer being typed
+    /// went nowhere on screen: four presses of `1` looked exactly like none, and
+    /// the only way to see them was paru's raw output — the view this one exists
+    /// to replace.
     pub fn prompt(&self) -> Option<Prompt> {
         if !self.running() {
             return None;
         }
-        self.prompt.clone()
+        let pending = self.prompt.as_ref()?;
+        let live = self.cursor_line();
+        Some(Prompt {
+            // A password is not echoed at all: the line stays the question, and
+            // showing it unchanged is the honest thing.
+            text: if live.is_empty() {
+                pending.text.clone()
+            } else {
+                live
+            },
+            masked: pending.masked,
+        })
+    }
+
+    /// The line the cursor is sitting on, trimmed.
+    fn cursor_line(&self) -> String {
+        let screen = self.screen();
+        let (line, _) = screen.cursor_position();
+        screen
+            .contents_between(line, 0, line, self.cols)
+            .trim()
+            .to_string()
     }
 
     fn detect_prompt(&self) -> Option<Prompt> {
         if !self.running() {
             return None;
         }
-        let screen = self.screen();
-        let (line, _) = screen.cursor_position();
-        let text = screen.contents_between(line, 0, line, self.cols);
-        let t = text.trim();
+        let t = self.cursor_line();
         if t.is_empty() {
             return None;
         }

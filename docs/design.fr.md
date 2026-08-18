@@ -67,11 +67,19 @@ racontée comme le reste, les dépendances de compilation signalées comme telle
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-Les cibles sont passées à paru qualifiées par leur dépôt — `aur/plakar`, `extra/ripgrep`.
-Sans le préfixe, `paru -S plakar` est ambigu, parce que `plakar-git` fournit `plakar` lui
-aussi : paru demande alors lequel on veut, après que le choix a déjà été fait en cochant une
-ligne. Le préfixe est la syntaxe que paru imprime dans sa propre table de résolution, et il
-tranche la question avant qu'elle puisse être posée.
+Les cibles sont passées à paru qualifiées par leur dépôt — `aur/plakar`, `extra/ripgrep` —
+et avec `--noprovides`.
+
+Le préfixe seul ne suffit pas. `paru -S plakar` est ambigu parce que `plakar-git` fournit
+`plakar` lui aussi, et `aur/plakar` restreint le dépôt sans toucher à la recherche de
+fournisseurs : paru demande toujours lequel on veut, après que le choix a été fait en cochant
+une ligne. `--provides` couvre « les cibles et les paquets manquants » ; ici les cibles
+viennent toujours d'une liste de noms réels, cette moitié-là n'est donc que du bruit.
+
+L'autre moitié est le coût, et il est dit plutôt que caché : une dépendance qu'aucun paquet ne
+satisfait par son nom échoue désormais à se résoudre au lieu de proposer un menu. Cet échec est
+bruyant et atterrit dans la liste des erreurs, là où la question était silencieuse et survenait
+à chaque installation ambiguë.
 
 paru pose aussi des questions numérotées, et celles-là étaient pires : `Enter a number
 (default=1):` n'a ni crochets ni point d'interrogation, elle n'était donc pas reconnue comme
@@ -88,7 +96,12 @@ parce qu'une invite n'en a pas.
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-La question est aussi conservée plutôt que recalculée à chaque image. La détection lit la
+La question est conservée plutôt que recalculée à chaque image, mais son texte est lu en
+direct. Conserver le texte aussi figeait la question à l'instant de son apparition : une
+réponse en train d'être tapée n'apparaissait donc nulle part, quatre appuis sur `1`
+ressemblaient exactement à aucun, et le seul moyen de les voir était la sortie brute de paru —
+la vue que la transcription existe pour remplacer. Un mot de passe n'est pas renvoyé en écho :
+sa ligne reste la question, ce qui est la chose honnête à montrer. La détection lit la
 ligne où se trouve le curseur, et le premier caractère d'une réponse s'affiche sur cette même
 ligne — la forme cesse donc de correspondre dès qu'on tape, et « saisie attendue » disparaissait
 pendant que paru attendait toujours. Elle est effacée à l'arrivée d'une ligne complète, ce qui
@@ -232,6 +245,6 @@ vérifier la mise en page, produire une capture, ou déboguer depuis un script.
 | `24` | paru bloqué sur un choix de fournisseur |
 | `25` | une compilation AUR, avec les séquences que makepkg émet vraiment |
 | `26` | l'onglet Installés filtré sur une dépendance (`--query <nom>`) |
-| `27` | une question numérotée dans laquelle on a déjà tapé |
+| `27` | une question numérotée déjà tapée (4ᵉ nombre : une invite de mot de passe) |
 | `18` | plan de retour arrière construit à partir de celle-ci |
 | `19` | sortie brute de paru en fin d'exécution (4ᵉ nombre = lignes remontées) |

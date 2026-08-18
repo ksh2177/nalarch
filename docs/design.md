@@ -65,11 +65,19 @@ such:
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-Targets are handed to paru qualified by their repository — `aur/plakar`, `extra/ripgrep`.
-Without the prefix, `paru -S plakar` is ambiguous, because `plakar-git` provides `plakar` too:
-paru asks which one is meant, after the choice has already been made by picking a row. The
-prefix is the syntax paru prints in its own resolution table, and it settles the question
-before it can be asked.
+Targets are handed to paru qualified by their repository — `aur/plakar`, `extra/ripgrep` —
+and with `--noprovides`.
+
+The prefix alone is not enough. `paru -S plakar` is ambiguous because `plakar-git` provides
+`plakar` too, and `aur/plakar` scopes the repository without touching the search for
+providers: paru still asks which one is meant, after the choice has been made by picking a
+row. `--provides` covers "targets and missing packages"; the targets here always come from a
+list of real package names, so that half of it is pure noise.
+
+The other half is the cost, and it is stated rather than hidden: a dependency that no package
+satisfies by name now fails to resolve instead of offering a menu. That failure is loud and
+lands in the error list, where the question was silent and happened on every ambiguous
+install.
 
 paru also asks numbered questions, and those were worse: `Enter a number (default=1):` has
 neither brackets nor a question mark, so it was not recognised as a prompt at all. nalarch
@@ -85,7 +93,11 @@ precisely because a prompt has none.
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-The question is also held rather than recomputed each frame. Detection reads the line the
+The question is held rather than recomputed each frame, but its text is read live. Holding
+the text too froze the question at the instant it appeared, so an answer being typed went
+nowhere on screen: four presses of `1` looked exactly like none, and the only way to see them
+was paru's raw output — the view the transcript exists to replace. A password is not echoed at
+all, so its line stays the question, which is the honest thing to show. Detection reads the line the
 cursor sits on, and the first character of an answer is echoed onto that same line — so the
 shape stops matching the moment one starts typing, and "input expected" vanished while paru
 was still waiting. It is cleared when a complete line arrives, which only happens once paru
@@ -224,6 +236,6 @@ Useful to check the layout, produce a capture, or debug from a script.
 | `24` | paru blocked on a provider choice |
 | `25` | an AUR build, with the escape sequences makepkg really emits |
 | `26` | the Installed tab filtered on a dependency (`--query <name>`) |
-| `27` | a numbered question that has been answered into |
+| `27` | a numbered question answered into (4th number: a password prompt) |
 | `18` | the rollback plan built from that transaction |
 | `19` | paru's raw output at the end of a run (4th number = lines scrolled back) |

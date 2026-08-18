@@ -607,12 +607,24 @@ fn dump(args: &[String]) -> Result<()> {
         // lands on the prompt's own line, which is exactly what used to make
         // "input expected" disappear while paru was still waiting.
         27 => {
-            let script = concat!(
-                ":: There are 2 providers available for plakar:\\n",
-                ":: Repository AUR:\\n",
-                "    1) plakar  2) plakar-git\\n",
-                "Enter a number (default=1): ",
-            );
+            // A fourth number asks for the password prompt instead: it is
+            // never echoed, so it is the case where the live text must stay the
+            // question rather than show an answer.
+            let script = if nums.get(3).is_some_and(|n| *n != 0) {
+                "[sudo] password for user: "
+            } else {
+                concat!(
+                    ":: There are 2 providers available for plakar:\\n",
+                    ":: Repository AUR:\\n",
+                    "    1) plakar  2) plakar-git\\n",
+                    "Enter a number (default=1): ",
+                )
+            };
+            let typed = if nums.get(3).is_some_and(|n| *n != 0) {
+                ""
+            } else {
+                "1111"
+            };
             app.intent = Some(app::Intent {
                 display_command: None,
                 title: i18n::t("Demo").into(),
@@ -621,7 +633,7 @@ fn dump(args: &[String]) -> Result<()> {
                     "-c".into(),
                     // The digit is echoed the way a terminal would, with no
                     // newline: the question is still open.
-                    format!("printf '{script}'; sleep 1; printf '1'; sleep 5"),
+                    format!("printf '{script}'; sleep 1; printf '{typed}'; sleep 5"),
                 ],
                 plan: plan::empty(),
                 risks: Vec::new(),
