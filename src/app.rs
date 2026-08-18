@@ -99,6 +99,18 @@ pub struct App {
     pub risks_scroll: u16,
     /// Switches between our view of the run and paru's raw output.
     pub raw_visible: bool,
+    /// Where the transcript is pinned: the absolute index of its first visible
+    /// event, or `None` to follow the operation as it goes.
+    ///
+    /// Absolute, not a distance from the tail. A distance drifts: every event
+    /// that lands pushes the window forward by one, so a reader who stopped to
+    /// look at something watches it slide off the top on its own.
+    ///
+    /// Cells because only the rendering knows how many rows the block ended up
+    /// with, and therefore where the window really landed; it writes both back.
+    pub journal_anchor: std::cell::Cell<Option<usize>>,
+    /// First event shown by the last frame, so scrolling knows where it starts.
+    pub journal_start: std::cell::Cell<usize>,
     pub changelog: Option<crate::changelog::Changelog>,
     pub changelog_scroll: u16,
     pub checked: HashSet<String>,
@@ -130,6 +142,8 @@ impl App {
             plan_list: ListState::default(),
             risks_scroll: 0,
             raw_visible: false,
+            journal_anchor: std::cell::Cell::new(None),
+            journal_start: std::cell::Cell::new(0),
             changelog: None,
             changelog_scroll: 0,
             checked: HashSet::new(),
@@ -245,6 +259,22 @@ impl App {
     pub fn selected_transaction(&self) -> Option<&crate::history::Transaction> {
         let list = self.filtered_history();
         self.list.selected().and_then(|i| list.get(i).copied())
+    }
+
+    /// Scrolls the transcript. A positive delta goes back in time.
+    ///
+    /// It starts from where the last frame actually landed, so the first press
+    /// after following the tail picks up from what is on screen rather than
+    /// from a stale number.
+    pub fn scroll_journal(&mut self, delta: i32) {
+        let start = self.journal_start.get() as i32;
+        self.journal_anchor
+            .set(Some((start - delta).max(0) as usize));
+    }
+
+    /// Back to following the operation as it goes.
+    pub fn follow_journal(&mut self) {
+        self.journal_anchor.set(None);
     }
 
     /// Scrolls the selected transaction's detail.
@@ -672,6 +702,7 @@ impl App {
         let Some(intent) = &self.intent else {
             return;
         };
+        self.journal_anchor.set(None);
         match Session::spawn(&intent.cmd, rows, cols) {
             Ok(s) => {
                 self.session = Some(s);

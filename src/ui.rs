@@ -1558,7 +1558,7 @@ fn run_screen(f: &mut Frame, app: &mut App, zone: Rect) {
             notes_area,
         );
     }
-    run_footer(f, session, prompt, bottom);
+    run_footer(f, session, prompt, app.raw_visible, bottom);
 }
 
 fn run_header(
@@ -1736,9 +1736,25 @@ fn journal_block(f: &mut Frame, app: &App, session: &crate::exec::Session, zone:
     // One line is reserved for the phase bar.
     let room = interieur.saturating_sub(1);
 
-    // The tail of the journal is followed: the current action is what to see.
-    let started = j.events.len().saturating_sub(room);
-    let mut rows: Vec<Line> = j.events[started..]
+    // The tail is followed while the reader has not taken over: the current
+    // action is what one wants to see. Once they scroll back, the window stays
+    // where they put it, because seventy-five operations do not fit on screen
+    // and everything before the tail used to be unreachable without `j`.
+    let overflow = j.events.len().saturating_sub(room);
+    let started = match app.journal_anchor.get() {
+        None => overflow,
+        // Scrolled back down to the tail: following resumes on its own, which is
+        // what one means by scrolling to the bottom.
+        Some(a) if a >= overflow => {
+            app.journal_anchor.set(None);
+            overflow
+        }
+        Some(a) => a,
+    };
+    // Published so the next keypress starts from what is actually on screen.
+    app.journal_start.set(started);
+    let ended = (started + room).min(j.events.len());
+    let mut rows: Vec<Line> = j.events[started..ended]
         .iter()
         .map(|e| {
             let teinte = action_color(e.action);
@@ -1834,7 +1850,23 @@ fn journal_block(f: &mut Frame, app: &App, session: &crate::exec::Session, zone:
     // The block carries its function, not the phase: that already appears in
     // the header and in the download block, and repeating it there gave two
     // frames with the same title.
-    let title = format!(" {} ", tf("Operations · {0}", &[&j.events.len().to_string()]));
+    // Scrolled back, the title says where: without it, a frozen list is
+    // indistinguishable from an operation that has stopped producing events.
+    let title = if started < overflow {
+        format!(
+            " {} ",
+            tf(
+                "Operations · {0}-{1} of {2} · End to follow again",
+                &[
+                    &(started + 1).to_string(),
+                    &ended.to_string(),
+                    &j.events.len().to_string()
+                ]
+            )
+        )
+    } else {
+        format!(" {} ", tf("Operations · {0}", &[&j.events.len().to_string()]))
+    };
     f.render_widget(Paragraph::new(rows).block(framed(&title)), zone);
 }
 
@@ -1923,6 +1955,7 @@ fn run_footer(
     f: &mut Frame,
     session: &crate::exec::Session,
     prompt: Option<crate::exec::Prompt>,
+    raw_visible: bool,
     zone: Rect,
 ) {
     if let Some(question) = prompt {
@@ -1951,31 +1984,43 @@ fn run_footer(
         return;
     }
 
+    // The hint names the view one would switch *to*, not the one already on
+    // screen: offering "paru's raw output" while it is showing said nothing.
+    let toggle = if raw_visible {
+        t("j back to the transcript")
+    } else {
+        t("j paru's raw output")
+    };
     let (text, tint) = match session.exit_code {
         None => (
             format!(
-                " {}",
-                t("j paru's raw output · ↑↓ scroll · every other key is forwarded to it")
+                " {} · {}",
+                toggle,
+                t("↑↓ scroll · every other key is forwarded to paru")
             ),
             theme::DIM,
         ),
         Some(0) => (
             format!(
-                " {}",
-                t("Finished · j paru's detailed output · ↑↓ PgUp PgDn scroll · Enter to return")
+                " {} · {} · {}",
+                t("Finished"),
+                toggle,
+                t("↑↓ PgUp PgDn scroll · Enter to return")
             ),
             theme::GREEN,
         ),
         Some(c) => (
             format!(
                 " {}",
-                tf(
-                    "{0} · j raw output · ↑↓ PgUp PgDn scroll · Enter back to the table",
-                    &[&if session.interrupted {
+                format!(
+                    "{0} · {1} · {2}",
+                    if session.interrupted {
                         t("Interrupted").to_string()
                     } else {
                         tf("Failed (code {0})", &[&c.to_string()])
-                    }]
+                    },
+                    toggle,
+                    t("↑↓ PgUp PgDn scroll · Enter back to the table")
                 )
             ),
             theme::RED,

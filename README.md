@@ -127,8 +127,13 @@ On the plan screen: `Enter` launches, `Esc` cancels, `↑` `↓` walk the detail
 
 During a run, keystrokes go to paru, `Ctrl-C` included — its questions get answered and the
 sudo password typed without leaving the interface. The movement keys are the exception: they
-scroll the panel instead, before and after the run, and `j` switches between the transcript
-and paru's raw output.
+scroll whichever view is showing, before and after the run, and `j` switches between the
+transcript and paru's raw output.
+
+The transcript scrolls back through every operation, not just the ones that fit: a
+seventy-five package upgrade is precisely when one wants to look at what happened earlier.
+While following, new operations push the view along; once scrolled back it stays put, and
+`End` starts following again.
 
 ## Icons
 

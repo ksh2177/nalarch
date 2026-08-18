@@ -131,8 +131,13 @@ Sur l'écran de plan : `Entrée` lance, `Échap` annule, `↑` `↓` parcourent 
 
 Pendant l'exécution, les frappes vont à paru, `Ctrl-C` compris — on répond à ses questions et
 on saisit le mot de passe sudo sans quitter l'interface. Les touches de déplacement font
-exception : elles font défiler le panneau, avant comme après l'exécution, et `j` bascule
+exception : elles font défiler la vue affichée, avant comme après l'exécution, et `j` bascule
 entre la transcription et la sortie brute de paru.
+
+La transcription se remonte sur toutes les opérations, pas seulement celles qui tiennent à
+l'écran : une mise à jour de soixante-quinze paquets est justement le moment où l'on veut
+revoir ce qui s'est passé plus tôt. Tant qu'on suit, les nouvelles opérations poussent la vue ;
+une fois remonté elle reste où on l'a mise, et `Fin` reprend le suivi.
 
 ## Icônes
 

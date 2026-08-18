@@ -457,6 +457,49 @@ fn dump(args: &[String]) -> Result<()> {
                 }
             }
         }
+        // 22: a long transcript, to check that the operations can be walked
+        // back. A fourth number scrolls that many rows away from the tail.
+        22 => {
+            let mut script = String::from(":: Processing package changes...\\n");
+            for n in 1..=40 {
+                script.push_str(&format!("({n}/40) upgrading package-{n:02} [####] 100%%\\n"));
+            }
+            script.push_str(":: Running post-transaction hooks...\\n");
+            for n in 1..=8 {
+                script.push_str(&format!("({n}/8) Hook number {n}...\\n"));
+            }
+            app.intent = Some(app::Intent {
+                display_command: None,
+                title: i18n::t("Demo").into(),
+                cmd: vec!["sh".into(), "-c".into(), format!("printf '{script}'")],
+                plan: plan::empty(),
+                risks: Vec::new(),
+                removal: false,
+                notes: vec![i18n::t("demo render").into()],
+            });
+            app.mode = Mode::Plan;
+            app.start(
+                height.saturating_sub(ui::RUN_CHROME),
+                width.saturating_sub(2),
+            );
+            for _ in 0..60 {
+                std::thread::sleep(Duration::from_millis(25));
+                if let Some(s) = app.session.as_mut() {
+                    if s.pump() && !s.running() {
+                        break;
+                    }
+                }
+            }
+            // A fourth number pins the window to that event index. Scrolling
+            // by a delta would need a frame rendered first, since it starts from
+            // where the last one landed — in the interface one always is.
+            if let Some(&start) = nums.get(3) {
+                app.journal_anchor.set(Some(start));
+            }
+            // A fifth number switches to paru's raw output, the other half of
+            // what the footer has to describe.
+            app.raw_visible = nums.get(4).is_some_and(|n| *n != 0);
+        }
         // 19: paru's raw output (the "j" key) at the end of a run — used to
         // check that the *last* line produced is really visible.
         19 => {
@@ -731,37 +774,47 @@ fn run_key(
 
     // Scrolling before anything else, and unconditionally. Placing it after the
     // early return on `exit_code` made it dead once paru had finished — that is,
-    // exactly when the detailed output is opened to be read end to end, and only
-    // its last
-    // rows.
-    if let Some(session) = app.session.as_mut() {
-        match key.code {
-            KeyCode::Up => return {
-                let _: () = session.scroll_by(1);
-                Ok(())
-            },
-            KeyCode::Down => return {
-                let _: () = session.scroll_by(-1);
-                Ok(())
-            },
-            KeyCode::PageUp => return {
-                let _: () = session.scroll_by(10);
-                Ok(())
-            },
-            KeyCode::PageDown => return {
-                let _: () = session.scroll_by(-10);
-                Ok(())
-            },
-            KeyCode::Home => return {
-                let _: () = session.scroll_by(10_000);
-                Ok(())
-            },
-            KeyCode::End => return {
-                let _: () = session.scroll_to_bottom();
-                Ok(())
-            },
-            _ => {}
+    // exactly when the output is opened to be read end to end.
+    //
+    // Which of the two views scrolls depends on which one is showing. They are
+    // not the same thing: the raw screen is what paru printed, the transcript is
+    // what nalarch made of it, and each has its own history to walk. Seventy-five
+    // operations do not fit on screen, and everything before the tail used to be
+    // unreachable without switching to the raw output.
+    let step = match key.code {
+        KeyCode::Up => Some(1),
+        KeyCode::Down => Some(-1),
+        KeyCode::PageUp => Some(10),
+        KeyCode::PageDown => Some(-10),
+        _ => None,
+    };
+    if let Some(delta) = step {
+        if app.raw_visible {
+            if let Some(session) = app.session.as_mut() {
+                session.scroll_by(delta as isize);
+            }
+        } else {
+            app.scroll_journal(delta);
         }
+        return Ok(());
+    }
+    if matches!(key.code, KeyCode::Home | KeyCode::End) {
+        let to_top = key.code == KeyCode::Home;
+        match (app.raw_visible, to_top) {
+            (true, true) => {
+                if let Some(s) = app.session.as_mut() {
+                    s.scroll_by(10_000);
+                }
+            }
+            (true, false) => {
+                if let Some(s) = app.session.as_mut() {
+                    s.scroll_to_bottom();
+                }
+            }
+            (false, true) => app.scroll_journal(i32::MAX / 2),
+            (false, false) => app.follow_journal(),
+        }
+        return Ok(());
     }
 
     let exit_code = app.session.as_ref().is_some_and(|s| !s.running());

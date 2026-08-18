@@ -160,5 +160,6 @@ vérifier la mise en page, produire une capture, ou déboguer depuis un script.
 | `17` | historique, sur la transaction la plus fournie (4ᵉ nombre = index) |
 | `20` | l'onglet de recherche (`--query <terme>`, 4ᵉ nombre = quel résultat) |
 | `21` | le plan d'installation de ce résultat, dépendances comprises |
+| `22` | une transcription longue (4ᵉ nombre = premier événement, 5ᵉ = sortie brute) |
 | `18` | plan de retour arrière construit à partir de celle-ci |
 | `19` | sortie brute de paru en fin d'exécution (4ᵉ nombre = lignes remontées) |
