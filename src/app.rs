@@ -475,7 +475,7 @@ impl App {
     pub fn apply(&mut self) {
         let intent = match self.current_tab() {
             Tab::Updates => {
-                let targets = self.checked_visible();
+                let mut targets = self.checked_visible();
                 if targets.is_empty() {
                     self.message = Some((
                         crate::i18n::t("No package checked — press a to check them all").into(),
@@ -483,12 +483,25 @@ impl App {
                     ));
                     return;
                 }
+                // A partial selection must stay resolvable: pull in the updates
+                // that the new versions of the selection depend on (see plan.rs).
+                let pulled = plan::close_over_deps(
+                    &mut targets,
+                    &self.state.update_deps,
+                    &self.state.update_provides,
+                );
                 let available: Vec<String> =
                     self.state.updates.iter().map(|p| p.name.clone()).collect();
                 let excluded = plan::exclusions(&available, &targets);
                 let plan = plan::build(&self.state, &targets, &excluded);
                 let cmd = plan::upgrade_command(&available, &targets, plan.aur_count > 0);
                 let mut notes = Vec::new();
+                if !pulled.is_empty() {
+                    notes.push(crate::i18n::tf(
+                        "Pulled into the selection: {0} — the new versions of the checked packages depend on them.",
+                        &[&pulled.join(", ")],
+                    ));
+                }
                 if !excluded.is_empty() {
                     notes.push(crate::i18n::tf(
                         "{0} update(s) excluded through --ignore: {1}.",

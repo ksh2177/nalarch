@@ -2,6 +2,13 @@
 
 All notable changes to nalarch. Dates use YYYY-MM-DD.
 
+## Unreleased
+
+- A partial update selection is now closed over the dependencies of the target
+  versions: checking ncmpcpp alone while boost-libs stayed unchecked produced an
+  unresolvable transaction (`--ignore` turned it into a partial upgrade). The
+  required updates are pulled in automatically and listed in the plan notes.
+
 ## [0.2.1] — 2026-08-18
 
 - `--version` answers on stdout instead of opening the interface.

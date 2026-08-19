@@ -417,6 +417,8 @@ const FR: &[(&str, &str)] = &[
      "{0} mise(s) à jour exclue(s) via --ignore : {1}."),
     ("A partial upgrade is not supported on Arch: keep it for one-off cases.",
      "Une mise à jour partielle n'est pas supportée sur Arch : à réserver aux cas ponctuels."),
+    ("Pulled into the selection: {0} — the new versions of the checked packages depend on them.",
+     "Entraîné(s) dans la sélection : {0} — les nouvelles versions des paquets cochés en dépendent."),
     ("{0} AUR package(s): built from source, with unpredictable duration and size.",
      "{0} paquet(s) AUR : compilation depuis les sources, durée et taille imprévisibles."),
     ("paru will ask its own questions (reading the PKGBUILD, PGP keys).",

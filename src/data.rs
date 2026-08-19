@@ -83,6 +83,13 @@ pub struct State {
     /// name -> (available version, download size, installed size). Kept so that
     /// packages not yet installed can still be sized.
     pub sync: HashMap<String, (String, i64, i64)>,
+    /// Dependency strings of the SYNC (target) version of each available update.
+    /// Feeds the selection closure: upgrading ncmpcpp alone while --ignoring
+    /// boost-libs is unresolvable when the rebuild wants the new sonames.
+    pub update_deps: HashMap<String, Vec<String>>,
+    /// provide name -> update package name, for the same closure (sonames:
+    /// "libboost_locale.so" is provided by boost-libs, not a package name).
+    pub update_provides: HashMap<String, String>,
 }
 
 /// A package as pacman would resolve it in the transaction.
@@ -488,6 +495,25 @@ pub fn load() -> Result<State> {
 
     let (cache_bytes, cache_files) = mesurer_cache();
 
+    // Dependencies and provides of the TARGET version of each update, read from
+    // the sync databases (a handful of lookups). See State::update_deps.
+    let mut update_deps: HashMap<String, Vec<String>> = HashMap::new();
+    let mut update_provides: HashMap<String, String> = HashMap::new();
+    for u in &updates {
+        for db in handle.syncdbs() {
+            if let Ok(p) = db.pkg(u.name.as_str()) {
+                update_deps.insert(
+                    u.name.clone(),
+                    p.depends().iter().map(|d| d.to_string()).collect(),
+                );
+                for prov in p.provides() {
+                    update_provides.insert(prov.name().to_string(), u.name.clone());
+                }
+                break;
+            }
+        }
+    }
+
     Ok(State {
         installed,
         updates,
@@ -498,6 +524,8 @@ pub fn load() -> Result<State> {
         cache_uninstalled: paccache_dry_run(&harvest(p_desinstalles)),
         cache_keep: keep,
         sync: sync_of,
+        update_deps,
+        update_provides,
     })
 }
 

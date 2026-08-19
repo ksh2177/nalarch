@@ -131,6 +131,47 @@ pub fn upgrade_command(available: &[String], targets: &[String], aur: bool) -> V
 }
 
 /// Packages left out of an upgrade, derived from what is checked.
+/// Closes a partial selection over the dependencies of the TARGET versions.
+///
+/// `paru -Syu --ignore <others>` makes the selection a partial upgrade: if a
+/// selected package was rebuilt against the new version of an unselected one
+/// (ncmpcpp against boost 1.92 while boost-libs stays ignored), the transaction
+/// is unresolvable. Any update whose new version satisfies a dependency of a
+/// selected update is therefore pulled into the selection, to a fixed point.
+/// Returns the packages that were added, in the order they were discovered.
+pub fn close_over_deps(
+    targets: &mut Vec<String>,
+    update_deps: &std::collections::HashMap<String, Vec<String>>,
+    update_provides: &std::collections::HashMap<String, String>,
+) -> Vec<String> {
+    let dep_base = |d: &str| -> String {
+        d.split(['>', '<', '=']).next().unwrap_or(d).trim().to_string()
+    };
+    let mut added = Vec::new();
+    let mut i = 0;
+    while i < targets.len() {
+        let name = targets[i].clone();
+        if let Some(deps) = update_deps.get(&name) {
+            for d in deps {
+                let base = dep_base(d);
+                let owner = if update_deps.contains_key(&base) {
+                    Some(base)
+                } else {
+                    update_provides.get(&base).cloned()
+                };
+                if let Some(o) = owner {
+                    if !targets.contains(&o) {
+                        targets.push(o.clone());
+                        added.push(o);
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+    added
+}
+
 pub fn exclusions(available: &[String], targets: &[String]) -> Vec<String> {
     available
         .iter()
@@ -473,5 +514,22 @@ mod tests {
         let available = v(&["a", "b", "c"]);
         assert_eq!(exclusions(&available, &v(&["b"])), v(&["a", "c"]));
         assert!(exclusions(&available, &available).is_empty());
+    }
+
+    #[test]
+    fn la_fermeture_entraine_les_dependances_de_la_nouvelle_version() {
+        use std::collections::HashMap;
+        let mut deps = HashMap::new();
+        deps.insert("ncmpcpp".to_string(), vec!["libboost_locale.so=1.92.0-64".to_string()]);
+        deps.insert("boost-libs".to_string(), vec![]);
+        deps.insert("tmux".to_string(), vec![]);
+        let mut provides = HashMap::new();
+        provides.insert("libboost_locale.so".to_string(), "boost-libs".to_string());
+        let mut targets = v(&["ncmpcpp"]);
+        let added = close_over_deps(&mut targets, &deps, &provides);
+        assert_eq!(added, v(&["boost-libs"]));
+        assert_eq!(targets, v(&["ncmpcpp", "boost-libs"]));
+        // tmux, non concerné, reste dehors
+        assert!(!targets.contains(&"tmux".to_string()));
     }
 }
