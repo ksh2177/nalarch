@@ -212,3 +212,22 @@ sans TTY. Les deux sont décrits dans [Comment ça marche](docs/design.fr.md).
 ## Licence
 
 MIT. Voir [LICENSE](LICENSE).
+
+## Comment c'est fait
+
+nalarch est une collaboration entre un humain et une IA, et je préfère le dire
+clairement plutôt que vous le laissiez découvrir dans un trailer de commit. J'ai
+conçu l'outil, pris les décisions d'architecture et d'ergonomie, je relis le code,
+je l'utilise tous les jours sur ma propre machine et je le maintiens. L'essentiel du
+code a été écrit en binôme avec Claude (Anthropic), sous cette direction.
+
+Les outils de cette catégorie méritent la méfiance — nalarch se place devant votre
+gestionnaire de paquets. C'est aussi pourquoi sa conception est volontairement
+conservatrice : libalpm n'est utilisé qu'en lecture, chaque écriture passe par paru
+dans un pseudo-terminal (aucune résolution de dépendances ni logique de build n'est
+réimplémentée ici), et les pièges de mise à jour partielle comme un `pacman -Sy` nu
+sont évités par construction, avec des commentaires dans le source qui expliquent
+pourquoi.
+
+Jugez-le comme n'importe quel autre outil : sur son code, son suivi d'issues et son
+historique à partir de maintenant. Les rapports de bugs sont bienvenus.

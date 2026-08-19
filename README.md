@@ -205,3 +205,20 @@ with no TTY. Both are described in [How it works](docs/design.md).
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## How this was built
+
+nalarch is a collaboration between a human and an AI, and I'd rather say it plainly
+than let you find out from a commit trailer. I designed the tool, made the
+architectural and UX decisions, review the code, run it daily on my own machine, and
+maintain it. Most of the code itself was written in pair with Claude (Anthropic),
+under that direction.
+
+Tools in this space deserve scrutiny — nalarch sits in front of your package manager.
+That is also why its design is deliberately conservative: libalpm is used read-only,
+every write goes through paru running in a pseudo-terminal (no dependency resolution
+and no build logic is reimplemented here), and partial-upgrade traps like a bare
+`pacman -Sy` are avoided by design, with comments in the source explaining why.
+
+Judge it like any other tool: by its code, its issue tracker, and its history from
+here on. Bug reports are welcome.
