@@ -171,10 +171,17 @@ sentences. This is unrelated to the locale forced on paru — see
 
 ## Installing
 
-From the AUR, once published:
+From the AUR, once published (registration is temporarily paused upstream):
 
 ```bash
 paru -S nalarch          # or nalarch-git
+```
+
+Until then, straight from this repository — the PKGBUILD pins the tag tarball digest:
+
+```bash
+git clone https://github.com/ksh2177/nalarch && cd nalarch/packaging/nalarch
+makepkg -si
 ```
 
 From source:

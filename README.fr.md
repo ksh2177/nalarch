@@ -177,10 +177,17 @@ se remplir de phrases anglaises en silence. Rien à voir avec la locale imposée
 
 ## Installation
 
-Depuis l'AUR, une fois publié :
+Depuis l'AUR, une fois publié (les inscriptions y sont temporairement suspendues) :
 
 ```bash
 paru -S nalarch          # ou nalarch-git
+```
+
+En attendant, directement depuis ce dépôt — le PKGBUILD épingle le digest du tarball du tag :
+
+```bash
+git clone https://github.com/ksh2177/nalarch && cd nalarch/packaging/nalarch
+makepkg -si
 ```
 
 Depuis les sources :
