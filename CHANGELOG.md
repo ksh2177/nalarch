@@ -4,6 +4,10 @@ All notable changes to nalarch. Dates use YYYY-MM-DD.
 
 ## Unreleased
 
+- Once a run has succeeded, the banner's "sizes unknown before building" is
+  replaced by the measured totals: the AUR packages now exist in the local
+  database, so the plan is backfilled with their real installed sizes.
+
 - `v` on the plan screen shows the AUR recipes (PKGBUILDs) from paru's clone
   cache, before anything runs. paru only offers its own review when a recipe
   changed since the last build — this answers the other case.

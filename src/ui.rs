@@ -1605,7 +1605,9 @@ fn totals_line(intent: &crate::app::Intent) -> Line<'static> {
         spans.push(Span::styled(value, Style::default().fg(colour)));
     };
     if p.sizes_known() {
-        if !intent.removal {
+        // An all-AUR plan downloads nothing from the repositories: once the
+        // sizes are backfilled after the build, "download 0" would be noise.
+        if !intent.removal && !(p.total_dl == 0 && p.aur_count > 0) {
             add(t("download"), human_size(p.total_dl), theme::CYAN);
         }
         add(

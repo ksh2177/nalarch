@@ -890,6 +890,15 @@ fn run_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<()
             }
         }
 
+        // A run that just succeeded: the plan's unknown sizes now exist in the
+        // local database. One-shot — alpm must not be reopened on every tick.
+        if !app.sized_after_run
+            && app.session.as_ref().is_some_and(|s| s.exit_code == Some(0))
+        {
+            app.backfill_sizes();
+            redraw = true;
+        }
+
         if app.quit {
             return Ok(());
         }

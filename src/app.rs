@@ -119,6 +119,8 @@ pub struct App {
     /// PKGBUILD text). Read from paru's clone cache — see open_pkgbuild.
     pub pkgbuild: Option<(String, String)>,
     pub pkgbuild_scroll: u16,
+    /// One-shot: the completed run's plan already got its sizes backfilled.
+    pub sized_after_run: bool,
     pub checked: HashSet<String>,
     pub filter: String,
     pub search_mode: bool,
@@ -154,6 +156,7 @@ impl App {
             changelog_scroll: 0,
             pkgbuild: None,
             pkgbuild_scroll: 0,
+            sized_after_run: false,
             checked: HashSet::new(),
             filter: String::new(),
             search_mode: false,
@@ -829,7 +832,35 @@ impl App {
     }
 
     /// Actually launches the command, in an embedded pseudo terminal.
+    /// Once the run has succeeded, fills in the sizes the plan announced as
+    /// unknown: the AUR packages now exist in the local database, with a real
+    /// installed size. The banner switches from "unknown before building" to
+    /// the measured totals.
+    pub fn backfill_sizes(&mut self) {
+        self.sized_after_run = true;
+        let Some(intent) = self.intent.as_mut() else { return };
+        if intent.removal || intent.plan.unknown == 0 {
+            return;
+        }
+        let names: Vec<String> = intent
+            .plan
+            .rows
+            .iter()
+            .filter(|r| r.net.is_none())
+            .map(|r| r.name.clone())
+            .collect();
+        let sizes = data::installed_sizes(&names);
+        for r in intent.plan.rows.iter_mut() {
+            if r.net.is_none() {
+                r.net = sizes.get(&r.name).copied();
+            }
+        }
+        intent.plan.unknown = intent.plan.rows.iter().filter(|r| r.net.is_none()).count();
+        intent.plan.net = intent.plan.rows.iter().filter_map(|r| r.net).sum();
+    }
+
     pub fn start(&mut self, rows: u16, cols: u16) {
+        self.sized_after_run = false;
         let Some(intent) = &self.intent else {
             return;
         };

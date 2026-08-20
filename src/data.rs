@@ -101,6 +101,20 @@ pub struct State {
     pub rebuild_checker: bool,
 }
 
+/// Installed size of each named package, read from the local database. Used
+/// once a run has succeeded, to fill in what the plan could not know: an AUR
+/// build has no size before it exists, but the installed package has one.
+pub fn installed_sizes(names: &[String]) -> HashMap<String, i64> {
+    let Ok(handle) = Alpm::new("/", "/var/lib/pacman") else {
+        return HashMap::new();
+    };
+    let local = handle.localdb();
+    names
+        .iter()
+        .filter_map(|n| local.pkg(n.as_str()).ok().map(|p| (n.clone(), p.isize())))
+        .collect()
+}
+
 /// A package as pacman would resolve it in the transaction.
 #[derive(Debug, Clone)]
 pub struct Resolved {
