@@ -53,6 +53,14 @@ par quelque chose qui reste.
 Le panneau de détails affiche systématiquement **qui dépend du paquet sélectionné**
 (`Requis par` / `Optionnel pour`) — l'information à regarder avant toute suppression.
 
+Quand [rebuild-detector](https://archlinux.org/packages/extra/any/rebuild-detector/) est
+installé, l'onglet Mises à jour signale aussi les **paquets étrangers cassés par une mise à
+jour de bibliothèque** — le paquet `-git` qui ne se lance plus après une mise à jour de Qt
+ou de boost, sans nouvelle version à installer puisque rien n'a changé en amont.
+`checkupdates` et `paru -Qua` sont structurellement aveugles à ce cas : le remède n'est pas
+une mise à jour mais une recompilation, et `b` ouvre exactement ce plan
+(`paru -S --rebuild`).
+
 **Installés** laisse volontairement de côté les dépendances : 261 paquets sur 1883 sur une
 machine ordinaire. C'est ce qui en fait la liste de *tes* applications plutôt qu'un déversoir
 du système — mais c'est aussi pourquoi y chercher une dépendance ne donne rien. La ligne
@@ -129,6 +137,7 @@ sélectionné. Le fichier est créé au premier lancement avec `qt6-wayland` et
 | `p` | protéger / déprotéger |
 | `/` | filtrer (nom et description ; Historique : par paquet ; Recherche : la requête), `Échap` annule |
 | `c` | voir ce que change la mise à jour sélectionnée |
+| `b` | (onglet Mises à jour) recompiler les paquets étrangers cassés par une mise à jour de bibliothèque |
 | `u` | ouvrir le plan de l'action de l'onglet (Historique : le retour arrière) |
 | `U` | (onglet Cache) purger les paquets désinstallés |
 | `r` | recharger l'état |

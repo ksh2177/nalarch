@@ -622,6 +622,47 @@ impl App {
         self.mode = Mode::Plan;
     }
 
+    /// Rebuilds the foreign packages that `checkrebuild` flagged: same version,
+    /// same source, but linked against the libraries present NOW. This is the
+    /// case updates cannot express — after a soname bump (Qt, boost…) the -git
+    /// package has no new version to offer, it is simply broken until rebuilt.
+    pub fn rebuild(&mut self) {
+        if self.state.rebuilds.is_empty() {
+            let msg = if self.state.rebuild_checker {
+                crate::i18n::t("Nothing to rebuild: no foreign package links against a missing library.")
+            } else {
+                crate::i18n::t("Detection needs checkrebuild — install the rebuild-detector package.")
+            };
+            self.message = Some((msg.into(), Severity::Info));
+            return;
+        }
+        let targets = self.state.rebuilds.clone();
+        let plan = plan::install_plan(&self.state, &[], &targets);
+        let mut cmd = vec![
+            "paru".to_string(),
+            "-S".to_string(),
+            "--rebuild".to_string(),
+            "--noprovides".to_string(),
+        ];
+        cmd.extend(targets.iter().cloned());
+        let notes = vec![
+            crate::i18n::t(
+                "These packages link against libraries that no longer exist (typically after a Qt/boost-style upgrade): same version, rebuilt from source against the new ones.",
+            )
+            .into(),
+            crate::i18n::t("paru will ask its own questions (reading the PKGBUILD, PGP keys).").into(),
+        ];
+        self.intent = Some(Intent {
+            display_command: None,
+            title: crate::i18n::tf("Rebuild · {0} package(s)", &[&targets.len().to_string()]),
+            cmd,
+            risks: crate::risks::analyze(&plan, &self.state, &[], false),
+            plan,
+            removal: false,
+            notes,
+        });
+        self.mode = Mode::Plan;
+    }
 
     /// Builds the inverse of the transaction selected in the history. Nothing
     /// runs: it goes through the plan screen, like every other action.

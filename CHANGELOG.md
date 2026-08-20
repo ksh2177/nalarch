@@ -4,6 +4,11 @@ All notable changes to nalarch. Dates use YYYY-MM-DD.
 
 ## Unreleased
 
+- Updates tab flags foreign packages whose binaries link against libraries that
+  no longer exist (the -git package broken by a Qt/boost upgrade, with no new
+  version to install). Detection via `checkrebuild` (rebuild-detector) when
+  present; `b` opens a `paru -S --rebuild` plan for exactly those packages.
+
 - A partial update selection is now closed over the dependencies of the target
   versions: checking ncmpcpp alone while boost-libs stayed unchecked produced an
   unresolvable transaction (`--ignore` turned it into a partial upgrade). The

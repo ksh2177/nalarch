@@ -1008,6 +1008,26 @@ fn status_line(f: &mut Frame, app: &App, zone: Rect) {
         return;
     }
 
+    // Broken foreign packages come first: unlike a frozen update, they are
+    // already failing, and nothing else on this screen mentions them.
+    if app.current_tab() == Tab::Updates && !app.state.rebuilds.is_empty() {
+        let names = app.state.rebuilds.join(", ");
+        f.render_widget(
+            Paragraph::new(Line::from(Span::styled(
+                format!(
+                    " {}",
+                    tf(
+                        "{0} package(s) broken by a library upgrade — b to rebuild: {1}",
+                        &[&app.state.rebuilds.len().to_string(), &names]
+                    )
+                ),
+                Style::default().fg(theme::RED),
+            ))),
+            zone,
+        );
+        return;
+    }
+
     // Nothing selected: the frozen packages are recalled here, otherwise the
     // line would stay empty and that information would appear nowhere.
     if app.current_tab() == Tab::Updates && !app.state.ignored.is_empty() {
@@ -2450,6 +2470,18 @@ fn legend_line(f: &mut Frame, app: &App, zone: Rect) {
             ("↑↓", "navigate"),
             ("←→", "tab"),
             ("/", "filter by package"),
+            ("r", "reload"),
+        ]
+    } else if app.current_tab() == Tab::Updates {
+        &[
+            ("↑↓", "navigate"),
+            ("←→", "tab"),
+            ("space", "check"),
+            ("a/n", "all/none"),
+            ("b", "rebuild"),
+            ("p", "protect"),
+            ("c", "changes"),
+            ("/", "filter"),
             ("r", "reload"),
         ]
     } else {

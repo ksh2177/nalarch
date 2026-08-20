@@ -1140,6 +1140,7 @@ fn table_key(
                 }
                 KeyCode::Char('c') => app.open_changelog(),
                 KeyCode::Char('u') => app.apply(),
+                KeyCode::Char('b') => app.rebuild(),
                 KeyCode::Char('U') => app.purge_uninstalled(),
                 _ => {}
             }

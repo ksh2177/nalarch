@@ -2,7 +2,7 @@
 
 pkgname=nalarch-git
 _pkgname=nalarch
-pkgver=r0.0000000
+pkgver=0.2.1.r5.g652d3cb
 pkgrel=1
 pkgdesc='TUI package manager for Arch — reads through libalpm, delegates execution to paru (git)'
 arch=('x86_64' 'aarch64')

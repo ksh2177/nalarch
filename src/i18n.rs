@@ -363,12 +363,24 @@ const FR: &[(&str, &str)] = &[
     ("space", "espace"),
     ("check", "cocher"),
     ("all/none", "tout/rien"),
+    ("rebuild", "recompiler"),
     ("protect", "protéger"),
     ("changes", "changements"),
     ("filter", "filtrer"),
     ("filter by package", "filtrer par paquet"),
     ("reload", "recharger"),
     ("quit", "quitter"),
+
+    // Rebuild of broken foreign packages (checkrebuild)
+    ("{0} package(s) broken by a library upgrade — b to rebuild: {1}",
+     "{0} paquet(s) cassé(s) par une mise à jour de bibliothèque — b pour recompiler : {1}"),
+    ("Nothing to rebuild: no foreign package links against a missing library.",
+     "Rien à recompiler : aucun paquet étranger ne pointe vers une bibliothèque disparue."),
+    ("Detection needs checkrebuild — install the rebuild-detector package.",
+     "La détection demande checkrebuild — installer le paquet rebuild-detector."),
+    ("These packages link against libraries that no longer exist (typically after a Qt/boost-style upgrade): same version, rebuilt from source against the new ones.",
+     "Ces paquets pointent vers des bibliothèques qui n'existent plus (typiquement après une mise à jour type Qt/boost) : même version, recompilée depuis les sources contre les nouvelles."),
+    ("Rebuild · {0} package(s)", "Recompilation · {0} paquet(s)"),
 
     // main.rs
     ("Demo", "Démonstration"),

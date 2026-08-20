@@ -90,6 +90,15 @@ pub struct State {
     /// provide name -> update package name, for the same closure (sonames:
     /// "libboost_locale.so" is provided by boost-libs, not a package name).
     pub update_provides: HashMap<String, String>,
+    /// Foreign packages whose binaries link against libraries that no longer
+    /// exist — typically a -git package after a soname bump of a dependency
+    /// (Qt, boost…). Updating does not fix them: there is no new version, the
+    /// same source has to be REBUILT against the new libraries. Detected by
+    /// `checkrebuild` (rebuild-detector); empty when the tool is not installed.
+    pub rebuilds: Vec<String>,
+    /// Whether `checkrebuild` could be run at all: an empty `rebuilds` means
+    /// "nothing to do" only when this is true.
+    pub rebuild_checker: bool,
 }
 
 /// A package as pacman would resolve it in the transaction.
@@ -384,6 +393,10 @@ pub fn load() -> Result<State> {
     let p_aur = spawn("paru", &["-Qua"]);
     let p_anciennes = spawn("paccache", &[&keep_arg]);
     let p_desinstalles = spawn("paccache", &["-duk0"]);
+    // Foreign packages only (its default): inspecting a handful of AUR builds
+    // is cheap, and repo packages get rebuilt by their maintainers anyway.
+    let p_rebuild = spawn("checkrebuild", &[]);
+    let rebuild_checker = p_rebuild.is_some();
 
     let handle = Alpm::new("/", "/var/lib/pacman").context("opening the alpm database")?;
 
@@ -514,6 +527,16 @@ pub fn load() -> Result<State> {
         }
     }
 
+    // "tag<TAB>name" lines (foreign\tquickshell-git). A package that already
+    // has a pending update is left out: the update itself is the rebuild.
+    let mut rebuilds: Vec<String> = harvest(p_rebuild)
+        .lines()
+        .filter_map(|l| l.split_whitespace().nth(1).map(str::to_string))
+        .filter(|n| !maj_depot.contains_key(n) && !maj_aur.contains_key(n))
+        .collect();
+    rebuilds.sort();
+    rebuilds.dedup();
+
     Ok(State {
         installed,
         updates,
@@ -526,6 +549,8 @@ pub fn load() -> Result<State> {
         sync: sync_of,
         update_deps,
         update_provides,
+        rebuilds,
+        rebuild_checker,
     })
 }
 
