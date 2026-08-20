@@ -11,3 +11,9 @@
 # Divers
 *.log
 .DS_Store
+
+# Artefacts makepkg (packaging/*/ : sources clonées, pkg/, paquets construits)
+packaging/*/src/
+packaging/*/pkg/
+packaging/*/nalarch/
+packaging/*/*.pkg.tar.zst
