@@ -364,13 +364,38 @@ fn details_panel(f: &mut Frame, app: &App, zone: Rect) {
 
     if p.is_orphan() {
         l.push(Line::raw(""));
+        // The role first: WHY this package exists with no alpm link. That is
+        // the answer "Required by: nothing" keeps hiding.
+        match &p.orphan_role {
+            Some(crate::data::OrphanRole::Plugin(fw)) => {
+                l.push(Line::from(Span::styled(
+                    tf("{0} plugin: loaded on demand (dlopen) — the applications using it never declare it, alpm cannot see the link.", &[fw]),
+                    Style::default().fg(theme::CYAN),
+                )));
+            }
+            Some(crate::data::OrphanRole::DebugSymbols(base)) => {
+                l.push(Line::from(Span::styled(
+                    tf("Debug symbols of {0}: only used to debug or profile it. Safe to remove otherwise.", &[base]),
+                    Style::default().fg(theme::GREEN),
+                )));
+            }
+            Some(crate::data::OrphanRole::PythonModule) => {
+                l.push(Line::from(Span::styled(
+                    t("Python module: imported at run time by scripts and tools — a user of it leaves no alpm trace."),
+                    Style::default().fg(theme::CYAN),
+                )));
+            }
+            Some(crate::data::OrphanRole::CompatLib) => {
+                l.push(Line::from(Span::styled(
+                    t("Versioned compatibility library: kept for binaries linked against this old ABI. If nothing ever maps it, it is probably removable."),
+                    Style::default().fg(theme::CYAN),
+                )));
+            }
+            None => {}
+        }
         if p.loaded_by.is_empty() {
             l.push(Line::from(Span::styled(
-                t("No running process maps its files."),
-                Style::default().fg(theme::DIM),
-            )));
-            l.push(Line::from(Span::styled(
-                t("Careful: idle is not useless. Codecs, plugins and platform layers only load on demand (a video being played, a session type…)."),
+                t("No running process maps its files right now."),
                 Style::default().fg(theme::DIM),
             )));
         } else {

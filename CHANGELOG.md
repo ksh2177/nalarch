@@ -4,6 +4,11 @@ All notable changes to nalarch. Dates use YYYY-MM-DD.
 
 ## Unreleased
 
+- Orphans are classified by role, deduced from their file layout: dlopen'd
+  plugin (Qt, ALSA, GStreamer — the loader never declares them, alpm cannot
+  see the link), Python module, debug symbols (safe to remove), versioned
+  ABI-compat library. The detail panel states the role in one line instead of
+  leaving "Required by: nothing" unexplained.
 - Orphans show their observed usage: /proc/*/maps is read once per load, and an
   orphan whose files are mapped by a running process is marked in the list with
   the process names in the detail — the "does this actually serve?" question no

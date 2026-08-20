@@ -35,6 +35,11 @@ pub struct Pkg {
     pub optional_for: Vec<String>,
     pub depends_on: Vec<String>,
     pub origin: Origin,
+    /// What kind of orphan this is, deduced from its file layout. The point:
+    /// most "nothing requires it" packages exist for a reason alpm cannot see
+    /// (dlopen'd plugins, imported modules, ABI-compat libraries), and naming
+    /// that reason is what lets one decide without research.
+    pub orphan_role: Option<OrphanRole>,
     /// Processes currently mapping one of this package's files (read from
     /// /proc/*/maps). Only computed for orphans: it answers the question their
     /// list raises — "does this actually serve anything right now?" — that no
@@ -107,6 +112,36 @@ pub struct State {
     pub rebuild_checker: bool,
 }
 
+/// Deduces why an orphan exists from its name and file layout. Order matters:
+/// -debug is the strongest signal, then plugin directories (dlopen: the loader
+/// never declares them), then Python modules, then the versioned-name pattern
+/// of ABI-compat libraries. None means "no known pattern" — not "useless".
+fn orphan_role(name: &str, paths: &[String]) -> Option<OrphanRole> {
+    if let Some(base) = name.strip_suffix("-debug") {
+        return Some(OrphanRole::DebugSymbols(base.to_string()));
+    }
+    let has = |prefix: &str| paths.iter().any(|p| p.starts_with(prefix));
+    if has("usr/lib/qt6/plugins/") || has("usr/lib/qt5/plugins/") {
+        return Some(OrphanRole::Plugin("Qt"));
+    }
+    if has("usr/lib/alsa-lib/") || has("etc/alsa/conf.d/") || has("usr/share/alsa/alsa.conf.d/") {
+        return Some(OrphanRole::Plugin("ALSA"));
+    }
+    if has("usr/lib/gstreamer-1.0/") {
+        return Some(OrphanRole::Plugin("GStreamer"));
+    }
+    if paths.iter().any(|p| p.contains("/site-packages/")) {
+        return Some(OrphanRole::PythonModule);
+    }
+    // ffmpeg4.4, electron40… : a version baked into the NAME, plus shared
+    // libraries — the textbook shape of a compat package.
+    let versioned = name.chars().last().is_some_and(|c| c.is_ascii_digit());
+    if versioned && paths.iter().any(|p| p.contains(".so")) {
+        return Some(OrphanRole::CompatLib);
+    }
+    None
+}
+
 /// Which running processes map which files, read from /proc/*/maps in one
 /// pass. Key = absolute path (the " (deleted)" suffix stripped), value =
 /// process names. Unreadable entries (other users' processes) are skipped.
@@ -157,6 +192,22 @@ pub fn installed_sizes(names: &[String]) -> HashMap<String, i64> {
         .iter()
         .filter_map(|n| local.pkg(n.as_str()).ok().map(|p| (n.clone(), p.isize())))
         .collect()
+}
+
+/// Why an orphan exists even though no package requires it. Deduced from the
+/// file layout — see the orphan branch of `load()`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OrphanRole {
+    /// Files under a plugin directory loaded via dlopen: Qt, ALSA, GStreamer…
+    /// The loading application never declares them, alpm cannot know.
+    Plugin(&'static str),
+    /// Debug symbols split out of another package (name ends in -debug).
+    DebugSymbols(String),
+    /// Python modules: imported at run time by scripts and tools.
+    PythonModule,
+    /// A versioned compatibility library (ffmpeg4.4…): kept for binaries
+    /// linked against the old ABI.
+    CompatLib,
 }
 
 /// A package as pacman would resolve it in the transaction.
@@ -522,24 +573,25 @@ pub fn load() -> Result<State> {
         let optional_for: Vec<String> = p.optional_for().iter().map(String::from).collect();
         // Only for orphans (a handful): intersect the package's file list with
         // what running processes have mapped. See Pkg::loaded_by.
-        let loaded_by: Vec<String> =
+        let (loaded_by, orphan_role) =
             if !explicit && required_by.is_empty() && optional_for.is_empty() {
-                let mut users: Vec<String> = p
+                let paths: Vec<String> = p
                     .files()
                     .files()
                     .iter()
-                    .filter_map(|f| {
-                        let name = String::from_utf8_lossy(f.name());
-                        mapped.get(&format!("/{name}"))
-                    })
+                    .map(|f| String::from_utf8_lossy(f.name()).into_owned())
+                    .collect();
+                let mut users: Vec<String> = paths
+                    .iter()
+                    .filter_map(|f| mapped.get(&format!("/{f}")))
                     .flatten()
                     .cloned()
                     .collect();
                 users.sort();
                 users.dedup();
-                users
+                (users, orphan_role(&name, &paths))
             } else {
-                Vec::new()
+                (Vec::new(), None)
             };
 
         let pkg = Pkg {
@@ -556,6 +608,7 @@ pub fn load() -> Result<State> {
             optional_for,
             depends_on: p.depends().iter().map(|d| d.name().to_string()).collect(),
             origin,
+            orphan_role,
             loaded_by,
         };
 
