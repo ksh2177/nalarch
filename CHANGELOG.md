@@ -4,6 +4,11 @@ All notable changes to nalarch. Dates use YYYY-MM-DD.
 
 ## Unreleased
 
+- Orphans show their observed usage: /proc/*/maps is read once per load, and an
+  orphan whose files are mapped by a running process is marked in the list with
+  the process names in the detail — the "does this actually serve?" question no
+  alpm link can answer. Idle-is-not-useless caveat stated in the panel.
+
 - Once a run has succeeded, the banner's "sizes unknown before building" is
   replaced by the measured totals: the AUR packages now exist in the local
   database, so the plan is backfilled with their real installed sizes.

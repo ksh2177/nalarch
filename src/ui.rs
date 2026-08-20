@@ -189,6 +189,16 @@ fn package_row(app: &App, p: &Pkg, width: u16) -> ListItem<'static> {
         Style::default().fg(theme::repo_color(&p.repo)),
     ));
 
+    // Orphans only (loaded_by is computed for nothing else): an orphan whose
+    // files are mapped by a running process serves something RIGHT NOW, and
+    // that is the difference the list itself could never show.
+    if !p.loaded_by.is_empty() {
+        spans.push(Span::styled(
+            format!(" ● {}", truncate(&p.loaded_by.join(" "), 24)),
+            Style::default().fg(theme::GREEN),
+        ));
+    }
+
     ListItem::new(Line::from(spans))
 }
 
@@ -348,6 +358,35 @@ fn details_panel(f: &mut Frame, app: &App, zone: Rect) {
             l.push(Line::from(Span::styled(
                 format!("  {n}"),
                 Style::default().fg(theme::FG),
+            )));
+        }
+    }
+
+    if p.is_orphan() {
+        l.push(Line::raw(""));
+        if p.loaded_by.is_empty() {
+            l.push(Line::from(Span::styled(
+                t("No running process maps its files."),
+                Style::default().fg(theme::DIM),
+            )));
+            l.push(Line::from(Span::styled(
+                t("Careful: idle is not useless. Codecs, plugins and platform layers only load on demand (a video being played, a session type…)."),
+                Style::default().fg(theme::DIM),
+            )));
+        } else {
+            l.push(Line::from(Span::styled(
+                t("In use right now, mapped by:"),
+                Style::default().fg(theme::GREEN),
+            )));
+            for n in p.loaded_by.iter().take(6) {
+                l.push(Line::from(Span::styled(
+                    format!("  {n}"),
+                    Style::default().fg(theme::FG),
+                )));
+            }
+            l.push(Line::from(Span::styled(
+                t("Removing it would break these processes' next launch."),
+                Style::default().fg(theme::YELLOW),
             )));
         }
     }

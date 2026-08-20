@@ -35,6 +35,12 @@ pub struct Pkg {
     pub optional_for: Vec<String>,
     pub depends_on: Vec<String>,
     pub origin: Origin,
+    /// Processes currently mapping one of this package's files (read from
+    /// /proc/*/maps). Only computed for orphans: it answers the question their
+    /// list raises — "does this actually serve anything right now?" — that no
+    /// alpm link can answer. Empty does NOT mean useless: codecs, plugins and
+    /// platform layers load on demand.
+    pub loaded_by: Vec<String>,
 }
 
 impl Pkg {
@@ -99,6 +105,44 @@ pub struct State {
     /// Whether `checkrebuild` could be run at all: an empty `rebuilds` means
     /// "nothing to do" only when this is true.
     pub rebuild_checker: bool,
+}
+
+/// Which running processes map which files, read from /proc/*/maps in one
+/// pass. Key = absolute path (the " (deleted)" suffix stripped), value =
+/// process names. Unreadable entries (other users' processes) are skipped.
+fn mapped_by() -> HashMap<String, Vec<String>> {
+    let mut out: HashMap<String, Vec<String>> = HashMap::new();
+    let Ok(procs) = std::fs::read_dir("/proc") else {
+        return out;
+    };
+    for entry in procs.flatten() {
+        let pid = entry.file_name();
+        let Some(pid) = pid.to_str().filter(|p| p.bytes().all(|b| b.is_ascii_digit())) else {
+            continue;
+        };
+        let Ok(maps) = std::fs::read_to_string(format!("/proc/{pid}/maps")) else {
+            continue;
+        };
+        let comm = std::fs::read_to_string(format!("/proc/{pid}/comm"))
+            .map(|c| c.trim().to_string())
+            .unwrap_or_else(|_| pid.to_string());
+        let mut seen: HashSet<&str> = HashSet::new();
+        for line in maps.lines() {
+            let Some(i) = line.find('/') else { continue };
+            let path = line[i..].trim_end_matches(" (deleted)");
+            if seen.insert(path) {
+                let users = out.entry(path.to_string()).or_default();
+                if users.last().map(String::as_str) != Some(comm.as_str()) {
+                    users.push(comm.clone());
+                }
+            }
+        }
+    }
+    for users in out.values_mut() {
+        users.sort();
+        users.dedup();
+    }
+    out
 }
 
 /// Installed size of each named package, read from the local database. Used
@@ -444,6 +488,7 @@ pub fn load() -> Result<State> {
     let local = handle.localdb();
     let mut installed = Vec::new();
     let mut updates = Vec::new();
+    let mapped = mapped_by();
 
     for p in local.pkgs() {
         let name = p.name().to_string();
@@ -472,6 +517,31 @@ pub fn load() -> Result<State> {
         let download_size = cible_sync.map(|(_, dl, _)| *dl);
         let target_size = cible_sync.map(|(_, _, isize)| *isize);
 
+        let explicit = p.reason() == PackageReason::Explicit;
+        let required_by: Vec<String> = p.required_by().iter().map(String::from).collect();
+        let optional_for: Vec<String> = p.optional_for().iter().map(String::from).collect();
+        // Only for orphans (a handful): intersect the package's file list with
+        // what running processes have mapped. See Pkg::loaded_by.
+        let loaded_by: Vec<String> =
+            if !explicit && required_by.is_empty() && optional_for.is_empty() {
+                let mut users: Vec<String> = p
+                    .files()
+                    .files()
+                    .iter()
+                    .filter_map(|f| {
+                        let name = String::from_utf8_lossy(f.name());
+                        mapped.get(&format!("/{name}"))
+                    })
+                    .flatten()
+                    .cloned()
+                    .collect();
+                users.sort();
+                users.dedup();
+                users
+            } else {
+                Vec::new()
+            };
+
         let pkg = Pkg {
             name,
             version,
@@ -481,11 +551,12 @@ pub fn load() -> Result<State> {
             installed_size: p.isize(),
             download_size,
             target_size,
-            explicit: p.reason() == PackageReason::Explicit,
-            required_by: p.required_by().iter().map(String::from).collect(),
-            optional_for: p.optional_for().iter().map(String::from).collect(),
+            explicit,
+            required_by,
+            optional_for,
             depends_on: p.depends().iter().map(|d| d.name().to_string()).collect(),
             origin,
+            loaded_by,
         };
 
         if pkg.target_version.is_some() {

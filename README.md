@@ -50,6 +50,13 @@ build, a partial upgrade, a kernel update, a package still needed by something t
 The detail panel always shows **what depends on the selected package** (`Required by` /
 `Optional for`) — the thing to look at before any removal.
 
+Orphans get one more signal, because their whole problem is that no alpm link explains
+them: nalarch reads `/proc/*/maps` and marks the orphans whose files are **mapped by a
+running process right now** (`●` in the list, the process names in the detail). A green
+mark means "this serves something at this very moment" — qt6-wayland quietly loaded by
+your compositor, a codec mapped by the player mid-video. The caveat is stated in the
+panel: idle is not useless, plugins and codecs only load on demand.
+
 When [rebuild-detector](https://archlinux.org/packages/extra/any/rebuild-detector/) is
 installed, the Updates tab also flags **foreign packages broken by a library upgrade** —
 the `-git` package that stops launching after a Qt or boost update, with no new version to

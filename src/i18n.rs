@@ -391,6 +391,16 @@ const FR: &[(&str, &str)] = &[
     ("Recipe currently in cache. paru refreshes it at launch, and only offers its own review if it changed since the last build.",
      "Recette actuellement en cache. paru la rafraîchit au lancement, et ne propose sa relecture que si elle a changé depuis la dernière compilation."),
     ("Recipe", "Recette"),
+
+    // Observed usage of orphans (/proc/*/maps)
+    ("No running process maps its files.",
+     "Aucun processus en cours ne mappe ses fichiers."),
+    ("Careful: idle is not useless. Codecs, plugins and platform layers only load on demand (a video being played, a session type…).",
+     "Prudence : inactif ne veut pas dire inutile. Codecs, greffons et couches de plateforme ne se chargent qu'à la demande (une vidéo en cours, un type de session…)."),
+    ("In use right now, mapped by:",
+     "En usage en ce moment, mappé par :"),
+    ("Removing it would break these processes' next launch.",
+     "Le retirer casserait le prochain lancement de ces processus."),
     ("back to the plan · ↑↓ PgUp PgDn scroll",
      "retour au plan · ↑↓ PgUp PgDn défiler"),
 

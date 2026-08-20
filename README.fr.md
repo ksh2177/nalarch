@@ -53,6 +53,14 @@ par quelque chose qui reste.
 Le panneau de détails affiche systématiquement **qui dépend du paquet sélectionné**
 (`Requis par` / `Optionnel pour`) — l'information à regarder avant toute suppression.
 
+Les orphelins reçoivent un signal de plus, parce que leur problème est justement qu'aucun
+lien alpm ne les explique : nalarch lit `/proc/*/maps` et marque les orphelins dont les
+fichiers sont **mappés par un processus en cours** (`●` dans la liste, les noms des
+processus dans le détail). Une marque verte veut dire « ceci sert en ce moment même » —
+qt6-wayland chargé en silence par le compositeur, un codec mappé par le lecteur en pleine
+vidéo. La réserve est énoncée dans le panneau : inactif ne veut pas dire inutile, greffons
+et codecs ne se chargent qu'à la demande.
+
 Quand [rebuild-detector](https://archlinux.org/packages/extra/any/rebuild-detector/) est
 installé, l'onglet Mises à jour signale aussi les **paquets étrangers cassés par une mise à
 jour de bibliothèque** — le paquet `-git` qui ne se lance plus après une mise à jour de Qt
