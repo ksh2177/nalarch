@@ -23,6 +23,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         Mode::Plan => plan_screen(f, app, zone),
         Mode::Running => run_screen(f, app, zone),
         Mode::Changelog => changelog_screen(f, app, zone),
+        Mode::Pkgbuild => pkgbuild_screen(f, app, zone),
     }
 }
 
@@ -1104,6 +1105,8 @@ fn plan_screen(f: &mut Frame, app: &mut App, zone: Rect) {
         right,
     );
 
+    // Read before detail_list: it borrows app mutably, `intent` immutably.
+    let has_aur = intent.plan.rows.iter().any(|r| r.aur);
     detail_list(f, app, detail);
 
     let help = Line::from(vec![
@@ -1113,7 +1116,75 @@ fn plan_screen(f: &mut Frame, app: &mut App, zone: Rect) {
         Span::styled(format!(" {}   ", t("cancel")), Style::default().fg(theme::FG)),
         Span::styled(t("↑↓ walk the detail"), Style::default().fg(theme::DIM)),
     ]);
+    // Only when there is a recipe to read: repository packages carry none.
+    let help = if has_aur {
+        let mut spans = help.spans;
+        spans.push(Span::styled("   ", Style::default()));
+        spans.push(Span::styled(
+            t("v read the PKGBUILD(s)"),
+            Style::default().fg(theme::CYAN),
+        ));
+        Line::from(spans)
+    } else {
+        help
+    };
     f.render_widget(Paragraph::new(help), bottom);
+}
+
+/// The AUR recipes of the plan, before anything runs. paru's own review only
+/// appears when the recipe changed since the last build; this screen answers
+/// the other case — reading what WILL run even when paru has nothing to say.
+fn pkgbuild_screen(f: &mut Frame, app: &mut App, zone: Rect) {
+    let Some((names, text)) = &app.pkgbuild else { return };
+
+    let [top, middle, bottom] = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Fill(1),
+        Constraint::Length(1),
+    ])
+    .areas(zone);
+
+    f.render_widget(
+        Paragraph::new(vec![
+            Line::from(Span::styled(
+                format!(" PKGBUILD · {names}"),
+                Style::default().fg(theme::ACCENT).add_modifier(Modifier::BOLD),
+            )),
+            Line::from(Span::styled(
+                format!(" {}", t("Recipe currently in cache. paru refreshes it at launch, and only offers its own review if it changed since the last build.")),
+                Style::default().fg(theme::DIM),
+            )),
+        ]),
+        top,
+    );
+
+    let lines: Vec<Line> = text
+        .lines()
+        .map(|l| Line::from(Span::styled(format!(" {l}"), Style::default().fg(theme::FG))))
+        .collect();
+    let total = lines.len() as u16;
+    let visible = middle.height.saturating_sub(2);
+    let max_scroll = total.saturating_sub(visible);
+    if app.pkgbuild_scroll > max_scroll {
+        app.pkgbuild_scroll = max_scroll;
+    }
+    f.render_widget(
+        Paragraph::new(lines)
+            .scroll((app.pkgbuild_scroll, 0))
+            .block(framed(&format!(" {} ", t("Recipe")))),
+        middle,
+    );
+
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled(format!(" {} ", t("Esc")), theme::badge(theme::DIM)),
+            Span::styled(
+                format!(" {}", t("back to the plan · ↑↓ PgUp PgDn scroll")),
+                Style::default().fg(theme::FG),
+            ),
+        ])),
+        bottom,
+    );
 }
 
 fn plan_header(f: &mut Frame, intent: &crate::app::Intent, zone: Rect) {

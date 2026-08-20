@@ -818,6 +818,26 @@ fn run_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<()
                     match app.mode {
                         Mode::Table => table_key(app, key)?,
                         Mode::Plan => plan_key(app, key, terminal)?,
+                        Mode::Pkgbuild => match key.code {
+                            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('v') => {
+                                app.pkgbuild = None;
+                                app.mode = Mode::Plan;
+                            }
+                            KeyCode::Down | KeyCode::Char('j') => {
+                                app.pkgbuild_scroll = app.pkgbuild_scroll.saturating_add(1)
+                            }
+                            KeyCode::Up | KeyCode::Char('k') => {
+                                app.pkgbuild_scroll = app.pkgbuild_scroll.saturating_sub(1)
+                            }
+                            KeyCode::PageDown => {
+                                app.pkgbuild_scroll = app.pkgbuild_scroll.saturating_add(10)
+                            }
+                            KeyCode::PageUp => {
+                                app.pkgbuild_scroll = app.pkgbuild_scroll.saturating_sub(10)
+                            }
+                            KeyCode::Home => app.pkgbuild_scroll = 0,
+                            _ => {}
+                        },
                         Mode::Running => run_key(app, key)?,
                         Mode::Changelog => match key.code {
                             KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('c') => {
@@ -912,6 +932,7 @@ fn plan_key(
         }
         // The points of attention have their own scroll: they can outgrow the
         // available room even though they are what needs reading.
+        KeyCode::Char('v') => app.open_pkgbuild(),
         KeyCode::PageDown => app.risks_scroll = app.risks_scroll.saturating_add(1),
         KeyCode::PageUp => app.risks_scroll = app.risks_scroll.saturating_sub(1),
         KeyCode::Down | KeyCode::Char('j') => {

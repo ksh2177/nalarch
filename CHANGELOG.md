@@ -4,6 +4,10 @@ All notable changes to nalarch. Dates use YYYY-MM-DD.
 
 ## Unreleased
 
+- `v` on the plan screen shows the AUR recipes (PKGBUILDs) from paru's clone
+  cache, before anything runs. paru only offers its own review when a recipe
+  changed since the last build — this answers the other case.
+
 - Updates tab flags foreign packages whose binaries link against libraries that
   no longer exist (the -git package broken by a Qt/boost upgrade, with no new
   version to install). Detection via `checkrebuild` (rebuild-detector) when

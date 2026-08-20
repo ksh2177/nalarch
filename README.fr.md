@@ -143,7 +143,10 @@ sélectionné. Le fichier est créé au premier lancement avec `qt6-wayland` et
 | `r` | recharger l'état |
 | `q` | quitter |
 
-Sur l'écran de plan : `Entrée` lance, `Échap` annule, `↑` `↓` parcourent le détail.
+Sur l'écran de plan : `Entrée` lance, `Échap` annule, `↑` `↓` parcourent le détail, et
+`v` affiche les recettes AUR (PKGBUILD) depuis le cache de clones de paru — utile à
+savoir : paru ne propose sa propre relecture que si une recette a *changé* depuis la
+dernière compilation ; un PKGBUILD inchangé file droit au « Proceed? » sans rien montrer.
 
 Pendant l'exécution, les frappes vont à paru, `Ctrl-C` compris — on répond à ses questions et
 on saisit le mot de passe sudo sans quitter l'interface. Les touches de déplacement font

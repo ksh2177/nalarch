@@ -137,7 +137,10 @@ run with `qt6-wayland` and `qt6-avif-image-plugin` already protected.
 | `r` | reload the state |
 | `q` | quit |
 
-On the plan screen: `Enter` launches, `Esc` cancels, `↑` `↓` walk the detail.
+On the plan screen: `Enter` launches, `Esc` cancels, `↑` `↓` walk the detail, and `v`
+shows the AUR recipes (PKGBUILDs) from paru's clone cache — worth knowing because paru
+only offers its own review when a recipe *changed* since the last build: an unchanged
+PKGBUILD sails straight to "Proceed?" with nothing shown.
 
 During a run, keystrokes go to paru, `Ctrl-C` included — its questions get answered and the
 sudo password typed without leaving the interface. The movement keys are the exception: they

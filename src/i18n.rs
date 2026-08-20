@@ -382,6 +382,18 @@ const FR: &[(&str, &str)] = &[
      "Ces paquets pointent vers des bibliothèques qui n'existent plus (typiquement après une mise à jour type Qt/boost) : même version, recompilée depuis les sources contre les nouvelles."),
     ("Rebuild · {0} package(s)", "Recompilation · {0} paquet(s)"),
 
+    // PKGBUILD viewer on the plan screen
+    ("v read the PKGBUILD(s)", "v lire le(s) PKGBUILD"),
+    ("No AUR package in this plan: repository packages carry no PKGBUILD to read.",
+     "Aucun paquet AUR dans ce plan : les paquets des dépôts n'ont pas de PKGBUILD à lire."),
+    ("Not cloned yet: paru fetches it at launch and will offer the review then.",
+     "Pas encore cloné : paru le récupère au lancement et proposera la relecture à ce moment-là."),
+    ("Recipe currently in cache. paru refreshes it at launch, and only offers its own review if it changed since the last build.",
+     "Recette actuellement en cache. paru la rafraîchit au lancement, et ne propose sa relecture que si elle a changé depuis la dernière compilation."),
+    ("Recipe", "Recette"),
+    ("back to the plan · ↑↓ PgUp PgDn scroll",
+     "retour au plan · ↑↓ PgUp PgDn défiler"),
+
     // main.rs
     ("Demo", "Démonstration"),
     ("Demo — the system is not modified",

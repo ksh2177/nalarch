@@ -16,6 +16,8 @@ pub enum Mode {
     Running,
     /// What an update changes, before launching it.
     Changelog,
+    /// The AUR recipes of the plan, before launching it.
+    Pkgbuild,
 }
 
 /// What the user is about to launch, with everything needed to show it first.
@@ -113,6 +115,10 @@ pub struct App {
     pub journal_start: std::cell::Cell<usize>,
     pub changelog: Option<crate::changelog::Changelog>,
     pub changelog_scroll: u16,
+    /// AUR recipes shown from the plan screen: (package names, concatenated
+    /// PKGBUILD text). Read from paru's clone cache — see open_pkgbuild.
+    pub pkgbuild: Option<(String, String)>,
+    pub pkgbuild_scroll: u16,
     pub checked: HashSet<String>,
     pub filter: String,
     pub search_mode: bool,
@@ -146,6 +152,8 @@ impl App {
             journal_start: std::cell::Cell::new(0),
             changelog: None,
             changelog_scroll: 0,
+            pkgbuild: None,
+            pkgbuild_scroll: 0,
             checked: HashSet::new(),
             filter: String::new(),
             search_mode: false,
@@ -662,6 +670,47 @@ impl App {
             notes,
         });
         self.mode = Mode::Plan;
+    }
+
+    /// Shows the AUR recipes of the current plan, read from paru's clone
+    /// cache. The point is knowing what will run BEFORE launching: paru only
+    /// offers its own review when the recipe changed since the last build, so
+    /// an unchanged PKGBUILD sails straight to "Proceed?" with nothing shown.
+    pub fn open_pkgbuild(&mut self) {
+        let Some(intent) = &self.intent else { return };
+        let aur: Vec<String> = intent
+            .plan
+            .rows
+            .iter()
+            .filter(|r| r.aur)
+            .map(|r| r.name.clone())
+            .collect();
+        if aur.is_empty() {
+            self.message = Some((
+                crate::i18n::t("No AUR package in this plan: repository packages carry no PKGBUILD to read.")
+                    .into(),
+                Severity::Info,
+            ));
+            return;
+        }
+        let home = std::env::var("HOME").unwrap_or_default();
+        let mut text = String::new();
+        for name in &aur {
+            let path = format!("{home}/.cache/paru/clone/{name}/PKGBUILD");
+            text.push_str(&format!("──── {name} ─── {path}
+
+"));
+            match std::fs::read_to_string(&path) {
+                Ok(content) => text.push_str(&content),
+                Err(_) => text.push_str(crate::i18n::t(
+                    "Not cloned yet: paru fetches it at launch and will offer the review then.",
+                )),
+            }
+            text.push('\n');
+        }
+        self.pkgbuild = Some((aur.join(", "), text));
+        self.pkgbuild_scroll = 0;
+        self.mode = Mode::Pkgbuild;
     }
 
     /// Builds the inverse of the transaction selected in the history. Nothing
