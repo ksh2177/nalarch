@@ -46,3 +46,36 @@ entre sessions. État du repo au démarrage :
   dépendance au réseau redevient gênante, est d'afficher la table locale tout de
   suite et de charger les mises à jour en tâche de fond avec un indicateur dans
   l'onglet Mises à jour. Proposé à Stephen, non demandé.
+
+## ⚡ 01 OCTOBRE 2026 — ouverture immédiate, et le miroir allemand à 0,3 Mo/s
+
+### Fait
+
+- `fb8b2c1` feat(startup) : nalarch s'ouvre sur `data::load_local` (alpm +
+  cache, sans `checkupdates` / `paru -Qua` / `checkrebuild`), le `load()`
+  complet tourne dans un thread et `App::poll_refresh` remplace l'état à son
+  arrivée. Spinner sur l'onglet Mises à jour, `u` et `b` refusés tant que la
+  vérification tourne. Même chemin pour `reload()`. Premier écran en ~0,8 s
+  (debug), contre 36 s avant. C'est la piste notée le 02/09, demandée cette fois.
+- `12548f0` : commit du travail du 02/09 resté en attente (dépannage, journal,
+  pkgver).
+- Téléchargements à ~200 Kio/s par paquet sur une fibre 8 Gb : cause système.
+  Mirrorlist générée le 28/08 par `reflector --country France,Germany --sort
+  rate`, jamais rafraîchie (timer désactivé) ; son premier serveur,
+  `de.arch.niranjan.co`, était tombé à 0,3 Mo/s, et pacman n'abandonne un
+  miroir que sur erreur, pas sur lenteur. Le même miroir faisait les 36 s de
+  `checkupdates`. Mesures depuis le poste : miroirs FR 50-86 Mo/s.
+- Correctif système (Stephen, sudo) : `reflector.conf` = France, https, age 12,
+  latest 20, sort rate ; `reflector.timer` activé. Nouvelle tête de liste
+  `mirrors.gandi.net` à 122 Mo/s. Ancienne liste sauvée en
+  `/etc/pacman.d/mirrorlist.2026-08-28`.
+
+### Décisions prises
+
+- Pas de France+Allemagne : le classement par débit de reflector se fait depuis
+  archlinux.org, pas depuis le poste, et a écarté tous les FR le 28/08. France
+  seule suffit largement en débit et reste proche.
+- Ne jamais activer `reflector.timer` avec la conf par défaut (`--latest 5
+  --sort age`, sans pays) : pire que la liste figée.
+- `cargo fmt --check` échouait déjà avant la session ; pas de reformatage de
+  masse mêlé à la fonctionnalité.
