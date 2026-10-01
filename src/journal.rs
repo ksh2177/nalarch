@@ -199,6 +199,10 @@ pub struct Journal {
     group: String,
     /// Known sizes by file name, to accumulate the bytes fetched.
     sizes: HashMap<String, i64>,
+    /// pacman said "there is nothing to do". On its own that is fine; after a
+    /// plan that listed packages, it means pacman's databases disagree with
+    /// the ones nalarch read (see ui::skipped_by_paru).
+    pub nothing_to_do: bool,
 }
 
 const MAX_EVENTS: usize = 2000;
@@ -220,13 +224,13 @@ impl Default for Journal {
             choice: None,
             group: String::new(),
             sizes: HashMap::new(),
+            nothing_to_do: false,
         }
     }
 }
 
 impl Journal {
     /// Packages the transaction has already handled (downloads aside).
-    #[allow(dead_code)]
     pub fn handled(&self) -> impl Iterator<Item = &str> {
         self.events
             .iter()
@@ -259,6 +263,10 @@ impl Journal {
     pub fn analyze(&mut self, line: &str) {
         let l = line.trim();
         if l.is_empty() {
+            return;
+        }
+        if l == "there is nothing to do" {
+            self.nothing_to_do = true;
             return;
         }
 
@@ -895,6 +903,17 @@ mod tests {
         ]);
         assert!(j.events.is_empty());
         assert!(j.downloads.active.is_empty());
+    }
+
+    #[test]
+    fn nothing_to_do_is_remembered() {
+        let j = replay(&[
+            ":: Starting full system upgrade...",
+            " there is nothing to do",
+            ":: Looking for AUR upgrades...",
+        ]);
+        assert!(j.nothing_to_do);
+        assert!(j.events.is_empty());
     }
 
     /// paru's own phases arrive after the install and must not wipe what has

@@ -83,6 +83,10 @@ entre sessions. État du repo au démarrage :
   2 electron. `mirrors.gandi.net` (classé 1er, 122 Mo/s) avait ~3 h de retard,
   et `--age 12` l'acceptait ; `checkupdates` avait vu une base plus fraîche.
   Proposé : `--age 2` dans reflector.conf (hogwarts.fr passe en tête).
+- Côté nalarch, ce cas est désormais nommé au lieu de finir sur « toutes les
+  étapes ont abouti » : `Journal::nothing_to_do` + `ui::skipped_by_paru`
+  (paquets dépôt du plan non traités, seulement pour un `-Syu`). Vérifié en
+  rejouant la démo patchée localement (patch non commité).
 
 ### Décisions prises
 

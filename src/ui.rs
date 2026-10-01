@@ -1810,7 +1810,13 @@ fn run_header(
     app: &App,
     zone: Rect,
 ) {
+    let skipped = skipped_by_paru(app, session);
     let (symbol, label, colour) = match session.exit_code {
+        Some(0) if !skipped.is_empty() => (
+            "!",
+            t("finished, but nothing was updated").to_string(),
+            theme::YELLOW,
+        ),
         None => ("▶", t("running").to_string(), theme::ACCENT),
         Some(0) => ("✓", t("finished").to_string(), theme::GREEN),
         Some(c) if session.interrupted => (
@@ -1834,7 +1840,17 @@ fn run_header(
         ]),
         Line::from(vec![
             Span::styled(format!(" {:<8} ", t("step:")), Style::default().fg(theme::DIM)),
-            Span::styled(session.step_text(), Style::default().fg(theme::CYAN)),
+            Span::styled(
+                if skipped.is_empty() {
+                    session.step_text()
+                } else {
+                    tf(
+                        "{0} of {1} planned package(s) left as they were",
+                        &[&skipped.len().to_string(), &app.intent.as_ref().map_or(0, |i| i.plan.rows.len()).to_string()],
+                    )
+                },
+                Style::default().fg(if skipped.is_empty() { theme::CYAN } else { theme::YELLOW }),
+            ),
         ]),
     ];
     if let Some(intent) = &app.intent {
@@ -2181,7 +2197,14 @@ fn journal_block(f: &mut Frame, app: &App, session: &crate::exec::Session, zone:
 
     if rows.is_empty() {
         rows.push(Line::from(Span::styled(
-            format!(" {}", t("Waiting for the first operations…")),
+            format!(
+                " {}",
+                t(if session.exit_code.is_some() {
+                    "No operation was carried out."
+                } else {
+                    "Waiting for the first operations…"
+                })
+            ),
             Style::default().fg(theme::DIM),
         )));
     }
@@ -2299,9 +2322,70 @@ fn action_color(a: crate::journal::Action) -> Color {
 
 /// What is left to know once the operation has passed: the things that call
 /// for an action on your side and that the output drowns.
+/// Repository packages the plan listed for an upgrade that paru, having
+/// answered "there is nothing to do", never touched.
+///
+/// nalarch reads pending updates from `checkupdates`, which syncs a database
+/// of its own; paru syncs pacman's from the first mirror of the list. When
+/// that mirror lags behind, the two disagree: nalarch shows an update, paru
+/// finds none, and the run used to end on "every step succeeded" having done
+/// nothing at all.
+fn skipped_by_paru(app: &App, session: &crate::exec::Session) -> Vec<String> {
+    let j = session.journal();
+    if session.exit_code != Some(0) || !j.nothing_to_do {
+        return Vec::new();
+    }
+    let Some(intent) = &app.intent else {
+        return Vec::new();
+    };
+    let upgrade = intent
+        .cmd
+        .iter()
+        .any(|a| a.starts_with("-S") && a.contains('y') && a.contains('u'));
+    if intent.removal || !upgrade {
+        return Vec::new();
+    }
+    let handled: std::collections::HashSet<&str> = j.handled().collect();
+    intent
+        .plan
+        .rows
+        .iter()
+        .filter(|r| !r.aur && !handled.contains(r.name.as_str()))
+        .map(|r| r.name.clone())
+        .collect()
+}
+
 fn note_lines(app: &App, session: &crate::exec::Session) -> Vec<Line<'static>> {
     let j = session.journal();
     let mut l = Vec::new();
+
+    let skipped = skipped_by_paru(app, session);
+    if !skipped.is_empty() {
+        l.push(Line::from(vec![
+            Span::styled(" ▲ ", Style::default().fg(theme::YELLOW).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                tf(
+                    "Not updated: {0} — paru found nothing to do.",
+                    &[&skipped.join(", ")],
+                ),
+                Style::default().fg(theme::FG),
+            ),
+        ]));
+        l.push(Line::from(Span::styled(
+            format!(
+                "   {}",
+                t("The first mirror in /etc/pacman.d/mirrorlist does not have them yet: it lags behind checkupdates.")
+            ),
+            Style::default().fg(theme::DIM),
+        )));
+        l.push(Line::from(vec![
+            Span::styled(format!("   {} ", t("Try again later, or rank the mirrors again:")), Style::default().fg(theme::DIM)),
+            Span::styled(
+                "sudo systemctl start reflector.service",
+                Style::default().fg(theme::CYAN).add_modifier(Modifier::BOLD),
+            ),
+        ]));
+    }
 
     for e in &j.errors {
         l.push(Line::from(vec![
@@ -2339,7 +2423,7 @@ fn note_lines(app: &App, session: &crate::exec::Session) -> Vec<Line<'static>> {
     }
 
     // The reboot is inferred from the plan, not from the output: pacman does not say so.
-    if session.exit_code == Some(0) {
+    if session.exit_code == Some(0) && skipped.is_empty() {
         if let Some(intent) = &app.intent {
             let needed = crate::risks::needs_reboot(&intent.plan);
             if !needed.is_empty() {

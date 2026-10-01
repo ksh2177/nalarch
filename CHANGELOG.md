@@ -4,6 +4,12 @@ All notable changes to nalarch. Dates use YYYY-MM-DD.
 
 ## Unreleased
 
+- An upgrade that paru answers with "there is nothing to do" while the plan
+  listed repository packages no longer ends on "every step succeeded": the
+  header turns yellow ("finished, but nothing was updated"), and the notes
+  name the packages left out and the likely cause — the first mirror lags
+  behind the database `checkupdates` read.
+
 - Fixed: the run screen stayed blank for the whole download. pacman 7 prints
   `name-version-rel-arch` without the `.pkg.tar.zst` extension the parser was
   looking for, so no download was ever recognised — not even the rate. The
