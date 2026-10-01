@@ -33,18 +33,21 @@ barre() { # $1 libelle  $2 n  $3 m  $4 pas
   printf '\n'
 }
 
-# Download bar: file name, size, rate.
-dl() { # $1 fichier  $2 taille  $3 unite
+# Download bar, as pacman 7 prints it: the file without its extension, the
+# bytes received so far, then the aggregate Total line underneath.
+dl() { # $1 fichier  $2 taille  $3 unite  $4 n  $5 m
   i=0
   while [ "$i" -le 100 ]; do
     pleins=$((i / 5))
     f=$(printf "%${pleins}s" '' | tr ' ' '#')
     v=$(printf "%$((20 - pleins))s" '' | tr ' ' '-')
-    printf '\r %s   %s %s  1863 KiB/s 00:00 [%s%s] %3s%%' "$1" "$2" "$3" "$f" "$v" "$i"
-    i=$((i + 20))
-    sleep 0.09
+    recu=$(awk "BEGIN{printf \"%.1f\", $2 * $i / 100}")
+    printf '\r %s   %s %s  1863 KiB/s 00:00 [%s%s] %3s%%\n' "$1" "$recu" "$3" "$f" "$v" "$i"
+    fait=$(( $4 - 1 )); [ "$i" -eq 100 ] && fait=$4
+    printf '\r Total (%s/%s)   %s %s  1863 KiB/s 00:00 [%s%s] %3s%%\n' "$fait" "$5" "$recu" "$3" "$f" "$v" "$i"
+    i=$((i + 10))
+    sleep 0.25
   done
-  printf '\n'
 }
 
 printf '[sudo] password for %s: ' "$(id -un)"
@@ -74,9 +77,9 @@ read -r _reponse
 printf '\n'
 
 ligne ':: Retrieving packages...'
-dl 'fastfetch-2.67.1-1-x86_64.pkg.tar.zst' '638.5' 'KiB'
-dl 'bat-0.26.1-2-x86_64.pkg.tar.zst' '2.4' 'MiB'
-dl 'libfoo-1.4.2-1-x86_64.pkg.tar.zst' '240.0' 'KiB'
+dl 'fastfetch-2.67.1-1-x86_64' '638.5' 'KiB' 1 3
+dl 'bat-0.26.1-2-x86_64' '2.4' 'MiB' 2 3
+dl 'libfoo-1.4.2-1-x86_64' '240.0' 'KiB' 3 3
 
 ligne ':: Checking keyring...'
 barre 'checking keys in keyring' 1 3 34

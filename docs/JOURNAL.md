@@ -70,6 +70,20 @@ entre sessions. État du repo au démarrage :
   `mirrors.gandi.net` à 122 Mo/s. Ancienne liste sauvée en
   `/etc/pacman.d/mirrorlist.2026-08-28`.
 
+- Écran d'exécution muet pendant tout le téléchargement (signalé par Stephen :
+  « on sait rien de ce qui se passe »). Cause : pacman 7 n'imprime plus
+  l'extension `.pkg.tar.zst` sur ses barres, et `download_line` exigeait
+  `.pkg.tar` avant même de lire le débit — aucun téléchargement reconnu, bloc
+  Téléchargement jamais affiché. Diagnostic sur une sortie RÉELLE capturée
+  (`fakeroot pacman -Sw` sur une copie de base, cache jetable, sous `script`).
+  Corrigé : nom reconnu par sa release numérique, ligne `Total (n/m)` lue,
+  fichiers en cours suivis et affichés un par ligne. Script de démo aligné
+  sur le vrai format (il masquait le bug en gardant l'ancien).
+- Autre écart constaté : paru « nothing to do » alors que nalarch montrait
+  2 electron. `mirrors.gandi.net` (classé 1er, 122 Mo/s) avait ~3 h de retard,
+  et `--age 12` l'acceptait ; `checkupdates` avait vu une base plus fraîche.
+  Proposé : `--age 2` dans reflector.conf (hogwarts.fr passe en tête).
+
 ### Décisions prises
 
 - Pas de France+Allemagne : le classement par débit de reflector se fait depuis

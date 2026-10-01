@@ -145,6 +145,32 @@ pub struct Downloads {
     pub bytes: i64,
     /// Rate announced by pacman on the last line read.
     pub speed: Option<String>,
+    /// Files still being fetched, in the order pacman first showed them.
+    /// Without these the screen had nothing to say until a file completed —
+    /// minutes of silence for a large package on a slow mirror.
+    pub active: Vec<Transfer>,
+    /// pacman's own aggregate line, `Total (n/m)`: bytes and percentage over
+    /// the whole download, which a count of completed files cannot give (two
+    /// large files sit at "0/2" until the very end).
+    pub total: Option<Total>,
+}
+
+/// One file in flight.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Transfer {
+    pub name: String,
+    /// Bytes received so far: pacman's size column counts up as it goes.
+    pub bytes: i64,
+    pub percent: u8,
+    pub speed: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Total {
+    pub done: u32,
+    pub of: u32,
+    pub bytes: i64,
+    pub percent: u8,
 }
 
 pub struct Journal {
@@ -347,6 +373,14 @@ impl Journal {
             return;
         }
 
+        if let Some(total) = read_total(l) {
+            self.downloads.total = Some(total);
+            if let Some(v) = read_speed(l) {
+                self.downloads.speed = Some(v);
+            }
+            return;
+        }
+
         if let Some((n, m, label)) = read_counter(l) {
             self.counter = Some((n, m));
             self.percent = read_percent(l);
@@ -471,26 +505,43 @@ impl Journal {
 
     /// Bar line for a file currently being fetched.
     fn download_line(&mut self, l: &str, percent: u8) {
-        let Some(file) = l.split_whitespace().find(|m| m.contains(".pkg.tar")) else {
+        // The file is the first word. pacman used to print it with its
+        // `.pkg.tar.zst` extension and now prints `name-version-rel-arch` alone;
+        // name_from_file takes both, and refuses a database being synced
+        // ("chaotic-aur"), which has no version in its name.
+        let Some(file) = l.split_whitespace().next() else {
             return;
         };
-        if let Some(size) = read_size(l) {
-            self.sizes.insert(file.to_string(), size);
-        }
-        if let Some(v) = read_speed(l) {
-            self.downloads.speed = Some(v);
-        }
-        if percent < 100 {
-            return;
-        }
         let Some(name) = name_from_file(file) else {
             return;
         };
+        let bytes = read_size(l);
+        if let Some(size) = bytes {
+            self.sizes.insert(file.to_string(), size);
+        }
+        let speed = read_speed(l);
+        if let Some(v) = &speed {
+            self.downloads.speed = Some(v.clone());
+        }
+        if percent < 100 {
+            let transfer = Transfer {
+                name: name.clone(),
+                bytes: bytes.unwrap_or(0),
+                percent,
+                speed,
+            };
+            match self.downloads.active.iter_mut().find(|t| t.name == name) {
+                Some(t) => *t = transfer,
+                None => self.downloads.active.push(transfer),
+            }
+            return;
+        }
+        self.downloads.active.retain(|t| t.name != name);
         if self.downloads.finished.contains(&name) {
             return;
         }
         self.downloads.bytes += self.sizes.get(file).copied().unwrap_or(0);
-        self.downloads.last = file.to_string();
+        self.downloads.last = name.clone();
         self.downloads.finished.push(name.clone());
         let size = self.sizes.get(file).copied().unwrap_or(0);
         self.push_event(Action::Downloaded, name, crate::theme::human_size(size));
@@ -645,7 +696,27 @@ pub fn name_from_file(word: &str) -> Option<String> {
     if parts.len() < 4 {
         return None;
     }
+    // The release is a number ("1", "2.1"): what tells a package file from any
+    // other dashed word that happens to sit in front of a bar.
+    let release = parts[parts.len() - 2];
+    if !release.starts_with(|c: char| c.is_ascii_digit()) {
+        return None;
+    }
     Some(parts[..parts.len() - 3].join("-"))
+}
+
+/// pacman's aggregate download line:
+/// `Total (1/2)   187.4 MiB  69.6 MiB/s 00:00 [----c  o] 98%`.
+pub fn read_total(l: &str) -> Option<Total> {
+    let rest = l.strip_prefix("Total (")?;
+    let (inside, _) = rest.split_once(')')?;
+    let (n, m) = inside.split_once('/')?;
+    Some(Total {
+        done: n.trim().parse().ok()?,
+        of: m.trim().parse().ok()?,
+        bytes: read_size(l).unwrap_or(0),
+        percent: read_percent(l).unwrap_or(0),
+    })
 }
 
 /// Extracts a counter of the form "(3/7) label", tolerating the padding pacman
@@ -781,6 +852,49 @@ mod tests {
         assert_eq!(j.downloads.bytes, 653_824);
         assert_eq!(j.handled().collect::<Vec<_>>(), vec!["fastfetch"]);
         assert_eq!(j.phase, Phase::Hooks);
+    }
+
+    /// Lines as pacman 7 prints them (captured from a real run): no
+    /// `.pkg.tar` extension, a size column that counts up, and a Total line.
+    #[test]
+    fn a_download_is_followed_while_it_runs() {
+        let mut j = replay(&[
+            ":: Retrieving packages...",
+            " electron43-43.7.7-1-x86_64",
+            " Total (0/2)                                   0.0   B  0.00   B/s 00:00 [Co  o  o] 0%",
+            " electron42-42.11.10-1-x86_64               1279.8 KiB  2.00 MiB/s 00:46 [co  o  o]   1%",
+            " electron43-43.7.7-1-x86_64                   48.0 MiB  38.9 MiB/s 00:01 [----c  o]  50%",
+            " Total (0/2)                                  92.5 MiB  76.0 MiB/s 00:01 [----c  o]  48%",
+        ]);
+        assert!(j.events.is_empty());
+        let names: Vec<&str> = j.downloads.active.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, vec!["electron42", "electron43"]);
+        assert_eq!(j.downloads.active[1].percent, 50);
+        assert_eq!(j.downloads.active[1].bytes, 48 * 1024 * 1024);
+        assert_eq!(j.downloads.active[1].speed.as_deref(), Some("38.9 MiB/s"));
+        let total = j.downloads.total.unwrap();
+        assert_eq!((total.done, total.of, total.percent), (0, 2, 48));
+        assert_eq!(j.downloads.speed.as_deref(), Some("76.0 MiB/s"));
+
+        j.analyze(" electron43-43.7.7-1-x86_64                   95.4 MiB  32.9 MiB/s 00:03 [------] 100%");
+        let names: Vec<&str> = j.downloads.active.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, vec!["electron42"]);
+        assert_eq!(j.downloads.finished, vec!["electron43".to_string()]);
+        assert_eq!(j.events[0].action, Action::Downloaded);
+        assert_eq!(j.events[0].target, "electron43");
+    }
+
+    /// A database being synced draws the same kind of bar, but is not a
+    /// package download.
+    #[test]
+    fn a_database_sync_is_not_a_download() {
+        let j = replay(&[
+            ":: Synchronizing package databases...",
+            " chaotic-aur           657.8 KiB  1397 KiB/s 00:00 [-------------] 100%",
+            " gh0stzk-dotfiles-x86_64       2.1 KiB  1397 KiB/s 00:00 [-------------] 100%",
+        ]);
+        assert!(j.events.is_empty());
+        assert!(j.downloads.active.is_empty());
     }
 
     /// paru's own phases arrive after the install and must not wipe what has

@@ -4,6 +4,13 @@ All notable changes to nalarch. Dates use YYYY-MM-DD.
 
 ## Unreleased
 
+- Fixed: the run screen stayed blank for the whole download. pacman 7 prints
+  `name-version-rel-arch` without the `.pkg.tar.zst` extension the parser was
+  looking for, so no download was ever recognised — not even the rate. The
+  Download block now shows from the moment pacman starts fetching: an overall
+  bar in bytes read from pacman's `Total (n/m)` line, the rate, and one row
+  per file in flight with its own percentage.
+
 - The interface opens at once, on what alpm and the cache can tell locally;
   `checkupdates`, `paru -Qua` and `checkrebuild` run in the background and the
   Updates tab fills in when they land, with a spinner meanwhile. Previously

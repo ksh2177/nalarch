@@ -1733,11 +1733,16 @@ fn run_screen(f: &mut Frame, app: &mut App, zone: Rect) {
     let j = session.journal();
     let prompt = session.prompt();
 
-    // The download is only worth showing once it has started.
-    let h_dl = if j.downloads.finished.is_empty() && j.downloads.speed.is_none() {
-        0
+    // The download is shown as soon as pacman announces it, before the first
+    // byte: right after the password, this block is the sign that something is
+    // under way. One extra row per file in flight, within reason.
+    let downloading = j.phase == crate::journal::Phase::Downloading
+        || !j.downloads.finished.is_empty()
+        || j.downloads.total.is_some();
+    let h_dl = if downloading {
+        4 + j.downloads.active.len().min(MAX_TRANSFER_ROWS) as u16
     } else {
-        4
+        0
     };
     let notes = note_lines(app, session);
     let h_notes = if notes.is_empty() {
@@ -1845,9 +1850,13 @@ fn run_header(
     );
 }
 
-/// Download block: how many packages, which one has just finished, and where
-/// the volume stands. Those are the numbers one looks for when the connection
-/// drags.
+/// Files in flight listed under the download bar. ParallelDownloads is 5 by
+/// default; past that the list is cut and says how many it left out.
+const MAX_TRANSFER_ROWS: usize = 5;
+
+/// Download block: how many packages, which one has just finished, where the
+/// volume stands, then each file still in flight. Those are the numbers one
+/// looks for when the connection drags.
 fn download_block(
     f: &mut Frame,
     app: &App,
@@ -1855,22 +1864,30 @@ fn download_block(
     zone: Rect,
 ) {
     let j = session.journal();
-    let done = j.downloads.finished.len();
+    let dl = &j.downloads;
+    // pacman's Total line is the authority once it has appeared: it counts
+    // files and bytes over the whole download, in flight included.
+    let done = dl.total.map(|t| t.done as usize).unwrap_or(dl.finished.len());
     // With no plan (demo, or an action with no detail) the denominator is 0:
     // showing "3/0" or "0.0 %" would be absurd. What was actually observed is
     // used instead.
-    let expected = app
-        .intent
-        .as_ref()
-        .map(|i| i.plan.rows.len())
-        .filter(|n| *n > 0)
+    let expected = dl
+        .total
+        .map(|t| t.of as usize)
+        .or_else(|| {
+            app.intent
+                .as_ref()
+                .map(|i| i.plan.rows.len())
+                .filter(|n| *n > 0)
+        })
         .unwrap_or(done);
+    let bytes = dl.total.map(|t| t.bytes).unwrap_or(dl.bytes);
     let total_bytes = app
         .intent
         .as_ref()
         .map(|i| i.plan.total_dl)
         .filter(|t| *t > 0)
-        .unwrap_or(j.downloads.bytes);
+        .unwrap_or(bytes);
 
     let l1 = Line::from(vec![
         Span::styled(format!(" {:<10}", t("Packages")), Style::default().fg(theme::DIM)),
@@ -1880,22 +1897,15 @@ fn download_block(
         ),
         Span::styled(format!("     {:<10}", t("Latest")), Style::default().fg(theme::DIM)),
         Span::styled(
-            truncate(
-                if j.downloads.last.is_empty() {
-                    "—"
-                } else {
-                    &j.downloads.last
-                },
-                46,
-            ),
+            truncate(if dl.last.is_empty() { "—" } else { &dl.last }, 46),
             Style::default().fg(theme::FG),
         ),
     ]);
 
-    let fraction = if expected > 0 {
-        (done as f64 / expected as f64).min(1.0)
-    } else {
-        0.0
+    let fraction = match dl.total {
+        Some(t) => t.percent as f64 / 100.0,
+        None if total_bytes > 0 => (bytes as f64 / total_bytes as f64).min(1.0),
+        None => 0.0,
     };
     let mut right = vec![
         Span::styled(
@@ -1903,25 +1913,59 @@ fn download_block(
             Style::default().fg(theme::GREEN).add_modifier(Modifier::BOLD),
         ),
         Span::styled(
-            format!(
-                " • {} / {}",
-                human_size(j.downloads.bytes),
-                human_size(total_bytes)
-            ),
+            format!(" • {} / {}", human_size(bytes), human_size(total_bytes)),
             Style::default().fg(theme::FG),
         ),
     ];
-    let _ = &right;
-    if let Some(v) = &j.downloads.speed {
+    if let Some(v) = &dl.speed {
         right.push(Span::styled(
             format!(" • {v}"),
             Style::default().fg(theme::CYAN),
         ));
     }
-    let l2 = rail(" ⤓ ", theme::CYAN, fraction, zone.width, right);
+    let mut rows = vec![l1, rail(" ⤓ ", theme::CYAN, fraction, zone.width, right)];
+
+    let shown = dl.active.len().min(MAX_TRANSFER_ROWS);
+    for (i, tr) in dl.active.iter().take(shown).enumerate() {
+        // The last row owns up to what did not fit rather than hiding it.
+        let hidden = dl.active.len() - shown;
+        if i == shown - 1 && hidden > 0 {
+            rows.push(Line::from(Span::styled(
+                format!("   {}", tf("…and {0} more", &[&(hidden + 1).to_string()])),
+                Style::default().fg(theme::DIM),
+            )));
+            break;
+        }
+        let mut right = vec![
+            Span::styled(
+                format!("{:>3}%", tr.percent),
+                Style::default().fg(theme::FG),
+            ),
+            Span::styled(
+                format!(" • {:>10}", human_size(tr.bytes)),
+                Style::default().fg(theme::DIM),
+            ),
+        ];
+        if let Some(v) = &tr.speed {
+            right.push(Span::styled(format!(" • {v}"), Style::default().fg(theme::DIM)));
+        }
+        let label = format!("   {:<28} ", truncate(&tr.name, 28));
+        let mut line = rail(
+            "",
+            theme::CYAN,
+            tr.percent as f64 / 100.0,
+            zone.width.saturating_sub(label.chars().count() as u16),
+            right,
+        );
+        line.spans.insert(
+            0,
+            Span::styled(label, Style::default().fg(theme::FG)),
+        );
+        rows.push(line);
+    }
 
     f.render_widget(
-        Paragraph::new(vec![l1, l2]).block(framed(&format!(" {} ", t("Download")))),
+        Paragraph::new(rows).block(framed(&format!(" {} ", t("Download")))),
         zone,
     );
 }

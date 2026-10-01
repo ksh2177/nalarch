@@ -191,6 +191,7 @@ const FR: &[(&str, &str)] = &[
     ("{0} packages · cache {1}", "{0} paquets · cache {1}"),
     ("System is up to date.", "Système à jour."),
     ("Checking for updates…", "Recherche des mises à jour…"),
+    ("…and {0} more", "…et {0} de plus"),
     ("Still checking for updates…", "Les mises à jour sont encore en cours de vérification…"),
     ("Checking for updates failed: {0}", "Échec de la recherche des mises à jour : {0}"),
     ("No orphans.", "Aucun orphelin."),
