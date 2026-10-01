@@ -227,6 +227,24 @@ with no TTY. Both are described in [How it works](docs/design.md).
 - The download size is only shown when the sync database already carries the target version;
   otherwise the field is omitted rather than showing a wrong value.
 
+## Troubleshooting
+
+**Slow start (several seconds before the first screen).** nalarch does not paint anything
+before it knows the update list, and that list comes from `checkupdates` and `paru -Qua`,
+which both go through the network. A start that takes 5-10 seconds is almost always one
+mirror that does not answer: `checkupdates` waits for pacman's download timeout (10 s) on
+it before giving up. To find the culprit:
+
+```
+time checkupdates
+```
+
+A line like `failed retrieving file 'chaotic-aur.db' from geo-mirror.chaotic.cx :
+Connection timed out` names the mirror; comment its `Server =` line out of the matching
+mirrorlist (`/etc/pacman.d/chaotic-mirrorlist` in this case) so pacman moves on to the
+next one. Expected once fixed: `checkupdates` in about a second, nalarch in one or two.
+The remaining floor is the sync itself plus `checkrebuild`, which runs in parallel.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

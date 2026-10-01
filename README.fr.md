@@ -236,6 +236,25 @@ sans TTY. Les deux sont décrits dans [Comment ça marche](docs/design.fr.md).
 - La taille de téléchargement n'est affichée que si la base sync porte déjà la version
   cible ; sinon le champ est omis plutôt que d'afficher une valeur fausse.
 
+## Dépannage
+
+**Démarrage lent (plusieurs secondes avant le premier écran).** nalarch n'affiche rien
+avant de connaître la liste des mises à jour, et cette liste vient de `checkupdates` et de
+`paru -Qua`, qui passent tous deux par le réseau. Un démarrage de 5 à 10 secondes est
+presque toujours un miroir qui ne répond pas : `checkupdates` attend le délai de
+téléchargement de pacman (10 s) sur celui-ci avant d'abandonner. Pour trouver le coupable :
+
+```
+time checkupdates
+```
+
+Une ligne du type `failed retrieving file 'chaotic-aur.db' from geo-mirror.chaotic.cx :
+Connection timed out` nomme le miroir ; commenter sa ligne `Server =` dans la mirrorlist
+concernée (`/etc/pacman.d/chaotic-mirrorlist` ici) pour que pacman passe au suivant.
+Attendu une fois corrigé : `checkupdates` en une seconde environ, nalarch en une ou deux.
+Le plancher restant est la synchronisation elle-même plus `checkrebuild`, qui tourne en
+parallèle.
+
 ## Licence
 
 MIT. Voir [LICENSE](LICENSE).
