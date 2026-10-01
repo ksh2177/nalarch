@@ -238,22 +238,24 @@ sans TTY. Les deux sont décrits dans [Comment ça marche](docs/design.fr.md).
 
 ## Dépannage
 
-**Démarrage lent (plusieurs secondes avant le premier écran).** nalarch n'affiche rien
-avant de connaître la liste des mises à jour, et cette liste vient de `checkupdates` et de
-`paru -Qua`, qui passent tous deux par le réseau. Un démarrage de 5 à 10 secondes est
-presque toujours un miroir qui ne répond pas : `checkupdates` attend le délai de
-téléchargement de pacman (10 s) sur celui-ci avant d'abandonner. Pour trouver le coupable :
+**Les mises à jour tardent à apparaître, ou les téléchargements rampent.** nalarch s'ouvre
+sur ce qu'il lit localement et vérifie les mises à jour en tâche de fond (`checkupdates`,
+`paru -Qua`), avec un spinner sur l'onglet Mises à jour pendant ce temps. Si ce spinner
+tourne plus de quelques secondes, ou si paru télécharge à quelques centaines de Kio/s, le
+coupable est presque toujours un miroir : pacman envoie tous les téléchargements au PREMIER
+`Server =` de la liste et ne passe au suivant que sur erreur, jamais parce qu'il est lent.
+Pour le trouver :
 
 ```
 time checkupdates
 ```
 
 Une ligne du type `failed retrieving file 'chaotic-aur.db' from geo-mirror.chaotic.cx :
-Connection timed out` nomme le miroir ; commenter sa ligne `Server =` dans la mirrorlist
-concernée (`/etc/pacman.d/chaotic-mirrorlist` ici) pour que pacman passe au suivant.
-Attendu une fois corrigé : `checkupdates` en une seconde environ, nalarch en une ou deux.
-Le plancher restant est la synchronisation elle-même plus `checkrebuild`, qui tourne en
-parallèle.
+Connection timed out` nomme un miroir mort ; commenter sa ligne `Server =` dans la
+mirrorlist concernée. Un miroir lent, lui, ne produit aucune erreur : mesurer la tête de liste
+avec `curl -o /dev/null -w '%{speed_download}\n' <serveur>/extra/os/x86_64/extra.db`. Une
+mirrorlist classée une fois par `reflector --sort rate` vieillit ; `reflector.timer` la tient
+à jour. Attendu une fois corrigé : `checkupdates` en une seconde environ.
 
 ## Licence
 

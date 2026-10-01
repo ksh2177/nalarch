@@ -4,6 +4,13 @@ All notable changes to nalarch. Dates use YYYY-MM-DD.
 
 ## Unreleased
 
+- The interface opens at once, on what alpm and the cache can tell locally;
+  `checkupdates`, `paru -Qua` and `checkrebuild` run in the background and the
+  Updates tab fills in when they land, with a spinner meanwhile. Previously
+  nothing was drawn until the network check finished — half a minute behind a
+  slow mirror. Upgrade and rebuild wait for the check rather than reading an
+  empty list as "nothing to do". Same after a run and on `r`.
+
 - Orphans are classified by role, deduced from their file layout: dlopen'd
   plugin (Qt, ALSA, GStreamer — the loader never declares them, alpm cannot
   see the link), Python module, debug symbols (safe to remove), versioned

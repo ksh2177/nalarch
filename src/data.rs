@@ -492,19 +492,35 @@ fn parse_updates(raw: &str) -> HashMap<String, String> {
         .collect()
 }
 
+/// The full state, pending updates included. Blocks for as long as
+/// `checkupdates` takes to sync its temporary databases — seconds on a good
+/// mirror, half a minute on a bad one — so the interface runs it off-thread.
 pub fn load() -> Result<State> {
-    // The four subprocesses are independent and two of them are network-bound.
+    load_with(true)
+}
+
+/// The same state without the slow probes (`checkupdates`, `paru -Qua`,
+/// `checkrebuild`): everything alpm and the cache can tell locally, which is
+/// what the interface opens on while `load()` runs in the background. Pending
+/// updates and rebuilds are empty until then.
+pub fn load_local() -> Result<State> {
+    load_with(false)
+}
+
+fn load_with(probe: bool) -> Result<State> {
+    // The subprocesses are independent and two of them are network-bound.
     // Start them all first, do the alpm work while they run, and harvest at the
     // end.
     let keep = paccache_keep();
     let keep_arg = format!("-dk{keep}");
-    let p_depot = spawn("checkupdates", &[]);
-    let p_aur = spawn("paru", &["-Qua"]);
+    let probe_spawn = |cmd, args| if probe { spawn(cmd, args) } else { None };
+    let p_depot = probe_spawn("checkupdates", &[]);
+    let p_aur = probe_spawn("paru", &["-Qua"]);
     let p_anciennes = spawn("paccache", &[&keep_arg]);
     let p_desinstalles = spawn("paccache", &["-duk0"]);
     // Foreign packages only (its default): inspecting a handful of AUR builds
     // is cheap, and repo packages get rebuilt by their maintainers anyway.
-    let p_rebuild = spawn("checkrebuild", &[]);
+    let p_rebuild = probe_spawn("checkrebuild", &[]);
     let rebuild_checker = p_rebuild.is_some();
 
     let handle = Alpm::new("/", "/var/lib/pacman").context("opening the alpm database")?;

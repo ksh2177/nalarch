@@ -81,6 +81,11 @@ fn header(f: &mut Frame, app: &App, zone: Rect) {
                 Tab::Search => app.search.hits().len(),
                 Tab::Cache => app.state.cache_files,
             };
+            // Not a zero while the check runs: zero would read as "up to date".
+            let count = match (&app.refresh, o) {
+                (Some(r), Tab::Updates) => spinner_frame(r.started.elapsed()).to_string(),
+                _ => count.to_string(),
+            };
             Line::from(vec![
                 Span::raw(format!("{}{}", crate::icons::tab(*o), o.title())),
                 Span::styled(
@@ -220,6 +225,21 @@ fn package_list(f: &mut Frame, app: &mut App, zone: Rect) {
     } else {
         format!(" {} · {} ", app.current_tab().title(), tf("filter “{0}”", &[&app.filter]))
     };
+
+    if rows.is_empty() && app.current_tab() == Tab::Updates {
+        if let Some(r) = &app.refresh {
+            let msg = format!(
+                "{} {}",
+                spinner_frame(r.started.elapsed()),
+                t("Checking for updates…")
+            );
+            let p = Paragraph::new(Line::from(Span::styled(msg, Style::default().fg(theme::DIM))))
+                .alignment(Alignment::Center)
+                .block(framed(&title));
+            f.render_widget(p, zone);
+            return;
+        }
+    }
 
     if rows.is_empty() {
         let msg = t(match app.current_tab() {
@@ -1635,6 +1655,10 @@ pub const RUN_CHROME: u16 = RUN_TOP + RUN_BAR + RUN_BOTTOM + 2;
 /// every frame.
 const SPINNER: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
+fn spinner_frame(elapsed: std::time::Duration) -> &'static str {
+    SPINNER[(elapsed.as_millis() / 90) as usize % SPINNER.len()]
+}
+
 /// Formats a duration as h:mm:ss.
 fn hms(d: std::time::Duration) -> String {
     let s = d.as_secs();
@@ -2153,7 +2177,7 @@ fn journal_block(f: &mut Frame, app: &App, session: &crate::exec::Session, zone:
     let icon = match session.exit_code {
         None => format!(
             " {} ",
-            SPINNER[(session.duration().as_millis() / 90) as usize % SPINNER.len()]
+            spinner_frame(session.duration())
         ),
         Some(0) => " ✔ ".to_string(),
         Some(_) => " ✘ ".to_string(),

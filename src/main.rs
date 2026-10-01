@@ -54,7 +54,7 @@ fn main() -> Result<()> {
         return dump(&args);
     }
 
-    let mut app = App::new_app()?;
+    let mut app = App::open()?;
 
     // Demo: replays a paru-like session without installing anything. Used to
     // exercise the run screen when the system is already up to date and no real
@@ -787,6 +787,12 @@ fn run_loop(terminal: &mut ratatui::DefaultTerminal, app: &mut App) -> Result<()
         // writes nothing — during a build the output can fall silent for
         // seconds, and the interface would look frozen.
         if app.mode == Mode::Running && last_frame.elapsed() >= Duration::from_millis(90) {
+            redraw = true;
+        }
+        // Same for the update check running in the background.
+        if app.poll_refresh()
+            || (app.refresh.is_some() && last_frame.elapsed() >= Duration::from_millis(90))
+        {
             redraw = true;
         }
         // The pseudo terminal must know its panel's size, otherwise pacman

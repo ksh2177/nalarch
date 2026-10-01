@@ -20,6 +20,16 @@ pub enum Mode {
     Pkgbuild,
 }
 
+/// The full state being computed off-thread. The interface opens on the local
+/// read (`data::load_local`) and swaps this in when it lands: `checkupdates`
+/// syncs its databases over the network, and waiting for it before drawing
+/// anything made nalarch look like it hung on start.
+pub struct Refresh {
+    rx: std::sync::mpsc::Receiver<Result<State>>,
+    /// Drives the spinner while the updates are still being checked.
+    pub started: std::time::Instant,
+}
+
 /// What the user is about to launch, with everything needed to show it first.
 pub struct Intent {
     pub title: String,
@@ -128,12 +138,27 @@ pub struct App {
     pub mode: Mode,
     pub intent: Option<Intent>,
     pub session: Option<Session>,
+    /// Some while the full state is still loading in the background.
+    pub refresh: Option<Refresh>,
     pub quit: bool,
 }
 
 impl App {
+    /// Blocking constructor: the full state, updates included. For the
+    /// off-terminal paths (`--dump`) that need everything before rendering.
     pub fn new_app() -> Result<Self> {
-        let state = data::load()?;
+        Self::with_state(data::load()?)
+    }
+
+    /// Interactive constructor: opens on the local read and checks the
+    /// updates in the background (see Refresh).
+    pub fn open() -> Result<Self> {
+        let mut app = Self::with_state(data::load_local()?)?;
+        app.start_refresh();
+        Ok(app)
+    }
+
+    fn with_state(state: State) -> Result<Self> {
         let keep = data::load_keep();
         let mut list = ListState::default();
         list.select(Some(0));
@@ -164,8 +189,61 @@ impl App {
             mode: Mode::Table,
             intent: None,
             session: None,
+            refresh: None,
             quit: false,
         })
+    }
+
+    fn start_refresh(&mut self) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = tx.send(data::load());
+        });
+        self.refresh = Some(Refresh {
+            rx,
+            started: std::time::Instant::now(),
+        });
+    }
+
+    /// Takes the background result if it has landed. True when the state
+    /// changed and the screen needs redrawing.
+    pub fn poll_refresh(&mut self) -> bool {
+        let Some(r) = &self.refresh else { return false };
+        let result = match r.rx.try_recv() {
+            Ok(result) => result,
+            Err(std::sync::mpsc::TryRecvError::Empty) => return false,
+            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                Err(anyhow::anyhow!("the loading thread stopped"))
+            }
+        };
+        self.refresh = None;
+        match result {
+            Ok(state) => {
+                self.state = state;
+                // Same tab, same row where possible: the user may already be
+                // browsing while the updates arrive.
+                self.go_to(self.list.selected().unwrap_or(0));
+            }
+            Err(e) => {
+                self.message = Some((
+                    crate::i18n::tf("Checking for updates failed: {0}", &[&e.to_string()]),
+                    Severity::Warning,
+                ));
+            }
+        }
+        true
+    }
+
+    /// Refuses an action that needs the pending updates while they are still
+    /// being checked: an empty list then means "not known yet", not "none".
+    fn still_checking(&mut self) -> bool {
+        if self.refresh.is_some() {
+            self.message = Some((
+                crate::i18n::t("Still checking for updates…").into(),
+                Severity::Info,
+            ));
+        }
+        self.refresh.is_some()
     }
 
     pub fn current_tab(&self) -> Tab {
@@ -484,6 +562,9 @@ impl App {
     /// Builds the plan for the requested action and switches to its approval
     /// screen. Nothing runs until the user has confirmed.
     pub fn apply(&mut self) {
+        if self.current_tab() == Tab::Updates && self.still_checking() {
+            return;
+        }
         let intent = match self.current_tab() {
             Tab::Updates => {
                 let mut targets = self.checked_visible();
@@ -638,6 +719,9 @@ impl App {
     /// case updates cannot express — after a soname bump (Qt, boost…) the -git
     /// package has no new version to offer, it is simply broken until rebuilt.
     pub fn rebuild(&mut self) {
+        if self.still_checking() {
+            return;
+        }
         if self.state.rebuilds.is_empty() {
             let msg = if self.state.rebuild_checker {
                 crate::i18n::t("Nothing to rebuild: no foreign package links against a missing library.")
@@ -930,8 +1014,12 @@ impl App {
         self.mode = Mode::Plan;
     }
 
+    /// Same split as at startup: the local read now, the updates in the
+    /// background. A refresh already in flight is dropped — its thread runs to
+    /// the end, but nobody listens any more.
     pub fn reload(&mut self) -> Result<()> {
-        self.state = data::load()?;
+        self.state = data::load_local()?;
+        self.start_refresh();
         self.keep = data::load_keep();
         self.history = crate::history::load();
         self.caches = crate::history::Caches::index();

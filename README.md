@@ -229,21 +229,23 @@ with no TTY. Both are described in [How it works](docs/design.md).
 
 ## Troubleshooting
 
-**Slow start (several seconds before the first screen).** nalarch does not paint anything
-before it knows the update list, and that list comes from `checkupdates` and `paru -Qua`,
-which both go through the network. A start that takes 5-10 seconds is almost always one
-mirror that does not answer: `checkupdates` waits for pacman's download timeout (10 s) on
-it before giving up. To find the culprit:
+**Updates take long to appear, or downloads crawl.** nalarch opens on what it can read
+locally and checks the updates in the background (`checkupdates`, `paru -Qua`), with a
+spinner on the Updates tab meanwhile. If that spinner turns for more than a few seconds, or
+paru downloads at a few hundred KiB/s, the culprit is almost always a mirror: pacman sends
+every download to the FIRST `Server =` of the list and only moves on when it errors, never
+when it is merely slow. To find it:
 
 ```
 time checkupdates
 ```
 
 A line like `failed retrieving file 'chaotic-aur.db' from geo-mirror.chaotic.cx :
-Connection timed out` names the mirror; comment its `Server =` line out of the matching
-mirrorlist (`/etc/pacman.d/chaotic-mirrorlist` in this case) so pacman moves on to the
-next one. Expected once fixed: `checkupdates` in about a second, nalarch in one or two.
-The remaining floor is the sync itself plus `checkrebuild`, which runs in parallel.
+Connection timed out` names a dead mirror; comment its `Server =` line out of the matching
+mirrorlist. A slow one shows no error: measure the head of the list with
+`curl -o /dev/null -w '%{speed_download}\n' <server>/extra/os/x86_64/extra.db`. A mirrorlist
+ranked once by `reflector --sort rate` goes stale; `reflector.timer` keeps it current.
+Expected once fixed: `checkupdates` in about a second.
 
 ## License
 
